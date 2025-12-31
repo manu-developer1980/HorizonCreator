@@ -106,12 +106,26 @@ const CapturePage: React.FC<{
       setError(null);
       // Solicitar permisos de sensores bajo gesto de usuario
       await sensorService.requestPermissions();
-      const stream = await cameraService.startCamera(true); // Use back camera
+      const stream = await cameraService.startCamera(true); // Prefer back camera
       setIsCameraActive(true);
 
       if (videoRef.current) {
-        videoRef.current.srcObject = stream.stream;
-        videoRef.current.play().catch(console.error);
+        await cameraService.attachTo(videoRef.current);
+        // Si el vídeo no muestra imagen, probar cámara opuesta
+        setTimeout(async () => {
+          const v = videoRef.current!;
+          if (
+            (v.videoWidth === 0 || v.readyState < 2) &&
+            cameraService.getCurrentStream()
+          ) {
+            try {
+              const alt = await cameraService.switchCamera();
+              await cameraService.attachTo(v);
+            } catch (e) {
+              console.warn("Switch camera failed:", e);
+            }
+          }
+        }, 800);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error starting camera");
@@ -215,24 +229,50 @@ const CapturePage: React.FC<{
           </>
         ) : (
           <div className="w-full h-full bg-space-900 flex items-center justify-center">
-            <div className="text-center">
+            <div className="text-center space-y-3">
               <CameraOff className="w-16 h-16 text-gray-400 mx-auto mb-4" />
               <p className="text-gray-300 mb-6">Cámara desactivada</p>
               <button onClick={startCamera} className="nav-button">
                 <Camera className="w-5 h-5" />
                 Activar Cámara
               </button>
+              <div>
+                <button
+                  onClick={async () => {
+                    try {
+                      await cameraService.switchCamera();
+                      if (videoRef.current)
+                        await cameraService.attachTo(videoRef.current);
+                    } catch (e) {
+                      setError(
+                        e instanceof Error
+                          ? e.message
+                          : "No se pudo cambiar cámara"
+                      );
+                    }
+                  }}
+                  className="nav-button">
+                  Cambiar cámara
+                </button>
+              </div>
+              <div className="mt-2">
+                <button
+                  onClick={() => sensorService.requestPermissions()}
+                  className="nav-button">
+                  Activar Sensores
+                </button>
+              </div>
             </div>
           </div>
         )}
       </div>
 
       {/* Crosshair */}
-      <div className="crosshair" />
+      <div className="crosshair z-10" />
 
       {/* Top HUD */}
-      <div className="absolute top-4 left-4 right-4">
-        <div className="flex justify-between items-start">
+      <div className="absolute top-6 left-6 z-20">
+        <div className="flex items-start gap-4">
           <div className="hud-element">
             <div className="sensor-label">Precisión</div>
             <div
@@ -254,7 +294,7 @@ const CapturePage: React.FC<{
       </div>
 
       {/* Side HUD */}
-      <div className="absolute top-1/2 left-4 transform -translate-y-1/2">
+      <div className="absolute top-1/2 left-6 transform -translate-y-1/2 z-20">
         <div className="hud-element mb-4">
           <div className="sensor-label">Azimut</div>
           <div className="sensor-reading">
@@ -271,12 +311,11 @@ const CapturePage: React.FC<{
       </div>
 
       {/* Right Side HUD */}
-      <div className="absolute top-1/2 right-4 transform -translate-y-1/2">
-        <div className="hud-element mb-4">
+      <div className="absolute top-1/2 right-6 transform -translate-y-1/2 z-20 space-y-4">
+        <div className="hud-element">
           <div className="sensor-label">Puntos</div>
           <div className="sensor-reading">{pointCount}</div>
         </div>
-
         <div className="hud-element">
           <div className="sensor-label">Estado</div>
           <div
@@ -289,8 +328,8 @@ const CapturePage: React.FC<{
       </div>
 
       {/* Bottom Controls */}
-      <div className="absolute bottom-8 left-4 right-4">
-        <div className="flex justify-between items-end">
+      <div className="absolute bottom-8 left-6 right-6 z-30 safe-bottom">
+        <div className="flex justify-between items-end gap-6">
           {/* Left Controls */}
           <div className="space-y-3">
             {isCameraActive && (
@@ -312,35 +351,19 @@ const CapturePage: React.FC<{
           <div className="flex flex-col items-center">
             <button
               onClick={capturePoint}
-              disabled={
-                !isCameraActive || !isStable || !currentReading || isCapturing
-              }
+              disabled={!currentReading || isCapturing}
               className={`capture-button ${isCapturing ? "recording" : ""}`}>
               <Target className="w-8 h-8 text-white" />
             </button>
             <div className="text-xs text-gray-400 mt-2 text-center">
-              {!isCameraActive && "Activa cámara"}
-              {isCameraActive && !isStable && "Espera estabilidad"}
-              {isCameraActive && isStable && "Capturar punto"}
+              {!currentReading && "Activa sensores/cámara"}
+              {currentReading && !isCapturing && "Capturar punto"}
+              {isCapturing && "Capturando..."}
             </div>
           </div>
 
-          {/* Right Controls */}
-          <div className="space-y-3">
-            <button
-              onClick={() => onNavigate?.("points")}
-              className="nav-button">
-              <List className="w-5 h-5" />
-              Puntos
-            </button>
-
-            <button
-              onClick={() => onNavigate?.("export")}
-              className="nav-button">
-              <Share2 className="w-5 h-5" />
-              Exportar
-            </button>
-          </div>
+          {/* Right Controls removed to evitar duplicación (usar navegación inferior) */}
+          <div />
         </div>
       </div>
     </div>

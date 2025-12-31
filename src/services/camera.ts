@@ -1,6 +1,5 @@
 export interface CameraStream {
   stream: MediaStream;
-  video: HTMLVideoElement;
   settings: MediaTrackSettings;
 }
 
@@ -96,81 +95,45 @@ class CameraService {
       this.stopCamera();
     }
 
-    const constraints: MediaStreamConstraints = {
-      video: {
-        facingMode: useBackCamera ? 'environment' : 'user',
-        width: { ideal: 1920, max: 1920 },
-        height: { ideal: 1080, max: 1080 },
-        frameRate: { ideal: 30, max: 60 }
-      },
-      audio: false
+    // Prefer deviceId selection when available
+    let deviceId: string | undefined;
+    try {
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const videos = devices.filter((d) => d.kind === 'videoinput');
+      const preferred = videos.find((d) =>
+        useBackCamera
+          ? /back|rear|environment/i.test(d.label)
+          : /front|user/i.test(d.label)
+      ) || videos[0];
+      deviceId = preferred?.deviceId;
+    } catch {}
+
+    const base: MediaStreamConstraints = {
+      video: deviceId
+        ? { deviceId: { exact: deviceId }, width: { ideal: 1280 }, height: { ideal: 720 } }
+        : { facingMode: useBackCamera ? 'environment' : 'user', width: { ideal: 1280 }, height: { ideal: 720 } },
+      audio: false,
     };
 
     try {
-      const stream = await navigator.mediaDevices.getUserMedia(constraints);
+      const stream = await navigator.mediaDevices.getUserMedia(base);
       this.currentStream = stream;
       this.isBackCamera = useBackCamera;
-
-      // Create video element
-      const video = document.createElement('video');
-      video.srcObject = stream;
-      video.playsInline = true;
-      video.muted = true;
-      
-      // Wait for video to load
-      await new Promise<void>((resolve, reject) => {
-        video.onloadedmetadata = () => resolve();
-        video.onerror = () => reject(new Error('Failed to load video'));
-        video.play().catch(reject);
-      });
-
-      this.videoElement = video;
-
       const videoTrack = stream.getVideoTracks()[0];
       const settings = videoTrack.getSettings();
-
-      return {
-        stream,
-        video,
-        settings
-      };
+      return { stream, settings };
     } catch (error) {
-      console.error('Failed to start camera:', error);
-      
-      // Fallback: try with basic constraints
-      try {
-        const basicConstraints: MediaStreamConstraints = {
-          video: true,
-          audio: false
-        };
-        
-        const stream = await navigator.mediaDevices.getUserMedia(basicConstraints);
-        this.currentStream = stream;
-        
-        const video = document.createElement('video');
-        video.srcObject = stream;
-        video.playsInline = true;
-        video.muted = true;
-        
-        await new Promise<void>((resolve, reject) => {
-          video.onloadedmetadata = () => resolve();
-          video.onerror = () => reject(new Error('Failed to load video'));
-          video.play().catch(reject);
-        });
-
-        this.videoElement = video;
-
-        const videoTrack = stream.getVideoTracks()[0];
-        const settings = videoTrack.getSettings();
-
-        return {
-          stream,
-          video,
-          settings
-        };
-      } catch (fallbackError) {
-        throw new Error('Failed to access camera with any constraints');
-      }
+      console.error('Failed to start camera, retrying with opposite facing:', error);
+      const fallbackFacing: MediaStreamConstraints = {
+        video: { facingMode: useBackCamera ? 'user' : 'environment' },
+        audio: false,
+      };
+      const stream = await navigator.mediaDevices.getUserMedia(fallbackFacing);
+      this.currentStream = stream;
+      this.isBackCamera = !useBackCamera;
+      const videoTrack = stream.getVideoTracks()[0];
+      const settings = videoTrack.getSettings();
+      return { stream, settings };
     }
   }
 
@@ -245,18 +208,19 @@ class CameraService {
     return videoTrack.getSettings();
   }
 
-  // Utility method to create a camera preview element
-  createPreviewElement(): HTMLVideoElement {
-    const video = document.createElement('video');
+  attachTo(video: HTMLVideoElement): Promise<void> {
+    if (!this.currentStream) throw new Error('Camera not active');
+    video.srcObject = this.currentStream;
     video.autoplay = true;
     video.playsInline = true;
     video.muted = true;
-    video.style.width = '100%';
-    video.style.height = '100%';
     video.style.objectFit = 'cover';
-    video.style.transform = this.isBackCamera ? 'scaleX(-1)' : 'scaleX(1)';
-    
-    return video;
+    return new Promise<void>((resolve, reject) => {
+      const onReady = () => resolve();
+      video.onloadedmetadata = onReady;
+      video.onerror = () => reject(new Error('Video element failed'));
+      video.play().catch(() => resolve());
+    });
   }
 
   // Method to apply camera-specific styles for mobile

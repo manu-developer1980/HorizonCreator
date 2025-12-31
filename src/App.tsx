@@ -9,6 +9,7 @@ export type Page = "capture" | "points" | "export" | "settings";
 const App: React.FC = () => {
   const [currentPage, setCurrentPage] = useState<Page>("capture");
   const [isPWAInstalled, setIsPWAInstalled] = useState(false);
+  const [installDismissed, setInstallDismissed] = useState(true);
 
   useEffect(() => {
     // Check if app is installed as PWA
@@ -104,7 +105,7 @@ const App: React.FC = () => {
       </div>
 
       {/* PWA Install Prompt */}
-      {!isPWAInstalled && (
+      {!isPWAInstalled && !installDismissed && (
         <div className="fixed bottom-20 left-4 right-4 bg-astro-600 text-white p-4 rounded-lg shadow-lg z-50">
           <div className="flex justify-between items-center">
             <div>
@@ -126,6 +127,11 @@ const App: React.FC = () => {
               }}
               className="bg-white text-astro-600 px-4 py-2 rounded-lg font-medium hover:bg-gray-100 transition-colors">
               Instalar
+            </button>
+            <button
+              onClick={() => setInstallDismissed(true)}
+              className="ml-2 px-3 py-2 rounded-lg bg-space-800 text-white">
+              Ocultar
             </button>
           </div>
         </div>

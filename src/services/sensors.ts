@@ -184,7 +184,7 @@ class SensorService {
   }
 
   private processOrientationEvent(event: DeviceOrientationEvent): void {
-    if (event.alpha !== null && event.beta !== null && event.gamma !== null) {
+    if (event.alpha != null && event.beta != null) {
       const reading = this.calculateSensorReading(event);
       this.updateReading(reading);
     }
@@ -222,14 +222,17 @@ class SensorService {
   }
 
   private calculateSensorReading(event: DeviceOrientationEvent): SensorReading {
-    const alpha = event.alpha ?? 0; // Azimuth (0-360)
-    const beta = event.beta ?? 0; // Pitch (-180 to 180)
-    const gamma = event.gamma ?? 0; // Roll (-90 to 90)
+    const alpha = event.alpha ?? 0;
+    const beta = event.beta ?? 0;
+    const gamma = event.gamma ?? 0;
 
     // Basic fusion: adjust pitch by roll to approximate camera altitude
     const pitch = beta - gamma / 4;
 
-    const azimuth = this.normalizeAngle(alpha);
+    const webkitHeading = (event as any).webkitCompassHeading as
+      | number
+      | undefined;
+    const azimuth = this.getHeading(webkitHeading, alpha, beta, gamma);
     const altitude = Math.max(0, Math.min(90, Math.abs(pitch))); // 0 to 90 degrees
 
     return {
@@ -240,6 +243,34 @@ class SensorService {
       latitude: this.currentReading?.latitude,
       longitude: this.currentReading?.longitude,
     };
+  }
+
+  private getHeading(
+    webkitHeading: number | undefined,
+    alpha: number,
+    beta: number,
+    gamma: number
+  ): number {
+    if (typeof webkitHeading === "number") {
+      return this.normalizeAngle(webkitHeading);
+    }
+    // Compute compass heading based on alpha/beta/gamma
+    const degtorad = Math.PI / 180;
+    const x = beta * degtorad;
+    const y = gamma * degtorad;
+    const z = alpha * degtorad;
+
+    const cX = Math.cos(x);
+    const cY = Math.cos(y);
+    const cZ = Math.cos(z);
+    const sX = Math.sin(x);
+    const sY = Math.sin(y);
+    const sZ = Math.sin(z);
+
+    const rA = -cZ * sY - sZ * sX * cY;
+    const rB = -sZ * sY + cZ * sX * cY;
+    const heading = Math.atan2(rA, rB) / degtorad;
+    return this.normalizeAngle(heading);
   }
 
   private updateGeolocation(position: GeolocationPosition): void {
