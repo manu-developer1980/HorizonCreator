@@ -13,6 +13,9 @@ class SensorService {
   private stabilityThreshold = 2.0; // degrees
   private stabilityWindow = 1000; // ms
   private readingHistory: SensorReading[] = [];
+  private filteredAzimuth: number | null = null;
+  private filteredAltitude: number | null = null;
+  private lpAlpha = 0.2;
 
   async checkPermissions(): Promise<SensorStatus> {
     const status: SensorStatus = {
@@ -258,7 +261,7 @@ class SensorService {
       | number
       | undefined;
     const azimuth = this.getHeading(webkitHeading, alpha, beta, gamma);
-    const altitude = Math.max(0, Math.min(90, Math.abs(beta)));
+    const altitude = Math.max(0, Math.min(90, 90 - Math.abs(beta)));
 
     return {
       timestamp: Date.now(),
@@ -306,6 +309,16 @@ class SensorService {
 
   private updateReading(reading: SensorReading): void {
     this.currentReading = reading;
+    if (this.filteredAzimuth == null) this.filteredAzimuth = reading.azimuth;
+    if (this.filteredAltitude == null) this.filteredAltitude = reading.altitude;
+    this.filteredAzimuth =
+      this.filteredAzimuth +
+      this.lpAlpha * (reading.azimuth - this.filteredAzimuth);
+    this.filteredAltitude =
+      this.filteredAltitude +
+      this.lpAlpha * (reading.altitude - this.filteredAltitude);
+    reading.azimuth = this.normalizeAngle(this.filteredAzimuth);
+    reading.altitude = Math.max(0, Math.min(90, this.filteredAltitude));
     this.readingHistory.push(reading);
 
     // Keep only recent readings for stability analysis
