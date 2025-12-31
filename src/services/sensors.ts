@@ -154,6 +154,15 @@ class SensorService {
       );
     }
 
+    // Provide a default reading so UI can operate even si los sensores tardan
+    const defaultReading: SensorReading = {
+      timestamp: Date.now(),
+      azimuth: 0,
+      altitude: 0,
+      accuracy: 10,
+    } as SensorReading;
+    this.updateReading(defaultReading);
+
     console.log("Sensor service started listening");
   }
 
@@ -184,10 +193,8 @@ class SensorService {
   }
 
   private processOrientationEvent(event: DeviceOrientationEvent): void {
-    if (event.alpha != null && event.beta != null) {
-      const reading = this.calculateSensorReading(event);
-      this.updateReading(reading);
-    }
+    const reading = this.calculateSensorReading(event);
+    this.updateReading(reading);
   }
 
   private processMotionEvent(event: DeviceMotionEvent): void {

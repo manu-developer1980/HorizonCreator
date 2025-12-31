@@ -270,9 +270,9 @@ const CapturePage: React.FC<{
       {/* Crosshair */}
       <div className="crosshair z-10" />
 
-      {/* Top HUD */}
-      <div className="absolute top-6 left-6 z-20">
-        <div className="flex items-start gap-4">
+      {/* Top HUD bar */}
+      <div className="hud-bar">
+        <div className="flex items-center gap-4">
           <div className="hud-element">
             <div className="sensor-label">Precisión</div>
             <div
@@ -280,16 +280,29 @@ const CapturePage: React.FC<{
               {getAccuracyText(accuracyLevel)}
             </div>
           </div>
-
           <div className="hud-element">
-            <div className="sensor-label">Estabilidad</div>
+            <div className="sensor-label">Lectura</div>
             <div
               className={`sensor-reading ${
-                isStable ? "text-green-400" : "text-red-400"
+                currentReading ? "text-green-400" : "text-red-400"
               }`}>
-              {isStable ? "Estable" : "Inestable"}
+              {currentReading ? "OK" : "Sin datos"}
             </div>
           </div>
+        </div>
+        <div className="flex items-center gap-3">
+          {isCameraActive && (
+            <button onClick={stopCamera} className="nav-button">
+              <CameraOff className="w-5 h-5" />
+              Apagar
+            </button>
+          )}
+          <button
+            onClick={() => onNavigate?.("settings")}
+            className="nav-button">
+            <Settings className="w-5 h-5" />
+            Ajustes
+          </button>
         </div>
       </div>
 
@@ -330,22 +343,8 @@ const CapturePage: React.FC<{
       {/* Bottom Controls */}
       <div className="absolute bottom-8 left-6 right-6 z-30 safe-bottom">
         <div className="flex justify-between items-end gap-6">
-          {/* Left Controls */}
-          <div className="space-y-3">
-            {isCameraActive && (
-              <button onClick={stopCamera} className="nav-button">
-                <CameraOff className="w-5 h-5" />
-                Apagar
-              </button>
-            )}
-
-            <button
-              onClick={() => onNavigate?.("settings")}
-              className="nav-button">
-              <Settings className="w-5 h-5" />
-              Ajustes
-            </button>
-          </div>
+          {/* Left Controls (vacío, controles movidos a top bar) */}
+          <div />
 
           {/* Center Capture Button */}
           <div className="flex flex-col items-center">
