@@ -130,6 +130,11 @@ class SensorService {
     };
 
     window.addEventListener("deviceorientation", this.orientationListener);
+    // Fallback absolute orientation when available (Android)
+    window.addEventListener(
+      "deviceorientationabsolute" as any,
+      this.orientationListener as any
+    );
     window.addEventListener("devicemotion", this.motionListener);
 
     // Start geolocation watch for location-based corrections
@@ -217,13 +222,15 @@ class SensorService {
   }
 
   private calculateSensorReading(event: DeviceOrientationEvent): SensorReading {
-    const alpha = event.alpha || 0; // Azimuth (0-360)
-    const beta = event.beta || 0; // Pitch (-180 to 180)
-    // const gamma = event.gamma || 0; // Roll (-90 to 90)
+    const alpha = event.alpha ?? 0; // Azimuth (0-360)
+    const beta = event.beta ?? 0; // Pitch (-180 to 180)
+    const gamma = event.gamma ?? 0; // Roll (-90 to 90)
 
-    // Convert to azimuth and altitude
-    const azimuth = this.normalizeAngle(alpha); // 0-360 degrees
-    const altitude = Math.max(-90, Math.min(90, beta)); // -90 to 90 degrees
+    // Basic fusion: adjust pitch by roll to approximate camera altitude
+    const pitch = beta - gamma / 4;
+
+    const azimuth = this.normalizeAngle(alpha);
+    const altitude = Math.max(0, Math.min(90, Math.abs(pitch))); // 0 to 90 degrees
 
     return {
       timestamp: Date.now(),

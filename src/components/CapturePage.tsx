@@ -1,21 +1,37 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Camera, CameraOff, Target, Settings, List, Share2 } from 'lucide-react';
-import { sensorService } from '../services/sensors';
-import { cameraService } from '../services/camera';
-import { db, createSession, addPoint, getCurrentSession } from '../services/database';
-import type { SensorReading, AccuracyLevel } from '../types';
+import React, { useState, useEffect, useRef } from "react";
+import {
+  Camera,
+  CameraOff,
+  Target,
+  Settings,
+  List,
+  Share2,
+} from "lucide-react";
+import { sensorService } from "../services/sensors";
+import { cameraService } from "../services/camera";
+import {
+  db,
+  createSession,
+  addPoint,
+  getCurrentSession,
+} from "../services/database";
+import type { SensorReading, AccuracyLevel } from "../types";
 
-const CapturePage: React.FC = () => {
+const CapturePage: React.FC<{
+  onNavigate?: (page: "capture" | "points" | "export" | "settings") => void;
+}> = ({ onNavigate }) => {
   const [isCameraActive, setIsCameraActive] = useState(false);
-  const [currentReading, setCurrentReading] = useState<SensorReading | null>(null);
+  const [currentReading, setCurrentReading] = useState<SensorReading | null>(
+    null
+  );
   const [isCapturing, setIsCapturing] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [pointCount, setPointCount] = useState(0);
-  const [accuracyLevel, setAccuracyLevel] = useState<AccuracyLevel>('poor');
+  const [accuracyLevel, setAccuracyLevel] = useState<AccuracyLevel>("poor");
   const [isStable, setIsStable] = useState(false);
   // const [stabilityScore, setStabilityScore] = useState(0);
   const [error, setError] = useState<string | null>(null);
-  
+
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -37,16 +53,12 @@ const CapturePage: React.FC = () => {
       // Check permissions first
       const sensorStatus = await sensorService.checkPermissions();
       const cameraStatus = await cameraService.checkCapabilities();
-      
-      console.log('Sensor status:', sensorStatus);
-      console.log('Camera capabilities:', cameraStatus);
-      
-      // Request permissions if needed
-      if (sensorStatus.permissions.deviceOrientation !== 'granted' ||
-          sensorStatus.permissions.geolocation !== 'granted') {
-        await sensorService.requestPermissions();
-      }
-      
+
+      console.log("Sensor status:", sensorStatus);
+      console.log("Camera capabilities:", cameraStatus);
+
+      // Permissions: solicitar bajo gesto de usuario (al activar cámara)
+
       // Start sensor listening
       sensorService.startListening((reading) => {
         setCurrentReading(reading);
@@ -55,7 +67,7 @@ const CapturePage: React.FC = () => {
         setIsStable(sensorService.isDeviceStable());
         // setStabilityScore(sensorService.getStabilityScore());
       });
-      
+
       // Create or get current session
       const currentSession = await getCurrentSession();
       if (currentSession) {
@@ -64,10 +76,11 @@ const CapturePage: React.FC = () => {
         const newSessionId = await createSession();
         setSessionId(newSessionId);
       }
-      
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error initializing services');
-      console.error('Initialization error:', err);
+      setError(
+        err instanceof Error ? err.message : "Error initializing services"
+      );
+      console.error("Initialization error:", err);
     }
   };
 
@@ -80,7 +93,10 @@ const CapturePage: React.FC = () => {
 
   const updatePointCount = async () => {
     if (sessionId) {
-      const points = await db.points.where('sessionId').equals(sessionId).toArray();
+      const points = await db.points
+        .where("sessionId")
+        .equals(sessionId)
+        .toArray();
       setPointCount(points.length);
     }
   };
@@ -88,16 +104,18 @@ const CapturePage: React.FC = () => {
   const startCamera = async () => {
     try {
       setError(null);
+      // Solicitar permisos de sensores bajo gesto de usuario
+      await sensorService.requestPermissions();
       const stream = await cameraService.startCamera(true); // Use back camera
       setIsCameraActive(true);
-      
+
       if (videoRef.current) {
         videoRef.current.srcObject = stream.stream;
         videoRef.current.play().catch(console.error);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error starting camera');
-      console.error('Camera error:', err);
+      setError(err instanceof Error ? err.message : "Error starting camera");
+      console.error("Camera error:", err);
     }
   };
 
@@ -110,48 +128,57 @@ const CapturePage: React.FC = () => {
   };
 
   const capturePoint = async () => {
-    if (!currentReading || !sessionId || !isStable) {
+    if (!currentReading || !sessionId) {
       return;
     }
 
     try {
       setIsCapturing(true);
-      
+
       await addPoint(
         sessionId,
         currentReading.azimuth,
         currentReading.altitude,
         currentReading.accuracy
       );
-      
-      setPointCount(prev => prev + 1);
-      
+
+      setPointCount((prev) => prev + 1);
+
       // Visual feedback
       setTimeout(() => setIsCapturing(false), 500);
-      
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error capturing point');
+      setError(err instanceof Error ? err.message : "Error capturing point");
       setIsCapturing(false);
     }
   };
 
   const getAccuracyColor = (level: AccuracyLevel): string => {
     switch (level) {
-      case 'excellent': return 'text-green-400';
-      case 'good': return 'text-yellow-400';
-      case 'fair': return 'text-orange-400';
-      case 'poor': return 'text-red-400';
-      default: return 'text-gray-400';
+      case "excellent":
+        return "text-green-400";
+      case "good":
+        return "text-yellow-400";
+      case "fair":
+        return "text-orange-400";
+      case "poor":
+        return "text-red-400";
+      default:
+        return "text-gray-400";
     }
   };
 
   const getAccuracyText = (level: AccuracyLevel): string => {
     switch (level) {
-      case 'excellent': return 'Excelente';
-      case 'good': return 'Buena';
-      case 'fair': return 'Regular';
-      case 'poor': return 'Pobre';
-      default: return 'Desconocida';
+      case "excellent":
+        return "Excelente";
+      case "good":
+        return "Buena";
+      case "fair":
+        return "Regular";
+      case "poor":
+        return "Pobre";
+      default:
+        return "Desconocida";
     }
   };
 
@@ -163,8 +190,7 @@ const CapturePage: React.FC = () => {
           <div className="text-gray-300 mb-6">{error}</div>
           <button
             onClick={() => window.location.reload()}
-            className="nav-button"
-          >
+            className="nav-button">
             Recargar Aplicación
           </button>
         </div>
@@ -192,10 +218,7 @@ const CapturePage: React.FC = () => {
             <div className="text-center">
               <CameraOff className="w-16 h-16 text-gray-400 mx-auto mb-4" />
               <p className="text-gray-300 mb-6">Cámara desactivada</p>
-              <button
-                onClick={startCamera}
-                className="nav-button"
-              >
+              <button onClick={startCamera} className="nav-button">
                 <Camera className="w-5 h-5" />
                 Activar Cámara
               </button>
@@ -212,15 +235,19 @@ const CapturePage: React.FC = () => {
         <div className="flex justify-between items-start">
           <div className="hud-element">
             <div className="sensor-label">Precisión</div>
-            <div className={`sensor-reading ${getAccuracyColor(accuracyLevel)}`}>
+            <div
+              className={`sensor-reading ${getAccuracyColor(accuracyLevel)}`}>
               {getAccuracyText(accuracyLevel)}
             </div>
           </div>
-          
+
           <div className="hud-element">
             <div className="sensor-label">Estabilidad</div>
-            <div className={`sensor-reading ${isStable ? 'text-green-400' : 'text-red-400'}`}>
-              {isStable ? 'Estable' : 'Inestable'}
+            <div
+              className={`sensor-reading ${
+                isStable ? "text-green-400" : "text-red-400"
+              }`}>
+              {isStable ? "Estable" : "Inestable"}
             </div>
           </div>
         </div>
@@ -231,14 +258,14 @@ const CapturePage: React.FC = () => {
         <div className="hud-element mb-4">
           <div className="sensor-label">Azimut</div>
           <div className="sensor-reading">
-            {currentReading ? `${currentReading.azimuth.toFixed(1)}°` : '---°'}
+            {currentReading ? `${currentReading.azimuth.toFixed(1)}°` : "---°"}
           </div>
         </div>
-        
+
         <div className="hud-element">
           <div className="sensor-label">Altitud</div>
           <div className="sensor-reading">
-            {currentReading ? `${currentReading.altitude.toFixed(1)}°` : '---°'}
+            {currentReading ? `${currentReading.altitude.toFixed(1)}°` : "---°"}
           </div>
         </div>
       </div>
@@ -249,11 +276,14 @@ const CapturePage: React.FC = () => {
           <div className="sensor-label">Puntos</div>
           <div className="sensor-reading">{pointCount}</div>
         </div>
-        
+
         <div className="hud-element">
           <div className="sensor-label">Estado</div>
-          <div className={`sensor-reading ${isCapturing ? 'text-blue-400' : 'text-green-400'}`}>
-            {isCapturing ? 'Capturando...' : 'Listo'}
+          <div
+            className={`sensor-reading ${
+              isCapturing ? "text-blue-400" : "text-green-400"
+            }`}>
+            {isCapturing ? "Capturando..." : "Listo"}
           </div>
         </div>
       </div>
@@ -264,19 +294,15 @@ const CapturePage: React.FC = () => {
           {/* Left Controls */}
           <div className="space-y-3">
             {isCameraActive && (
-              <button
-                onClick={stopCamera}
-                className="nav-button"
-              >
+              <button onClick={stopCamera} className="nav-button">
                 <CameraOff className="w-5 h-5" />
                 Apagar
               </button>
             )}
-            
+
             <button
-              onClick={() => {/* Navigate to settings */}}
-              className="nav-button"
-            >
+              onClick={() => onNavigate?.("settings")}
+              className="nav-button">
               <Settings className="w-5 h-5" />
               Ajustes
             </button>
@@ -286,9 +312,10 @@ const CapturePage: React.FC = () => {
           <div className="flex flex-col items-center">
             <button
               onClick={capturePoint}
-              disabled={!isCameraActive || !isStable || !currentReading || isCapturing}
-              className={`capture-button ${isCapturing ? 'recording' : ''}`}
-            >
+              disabled={
+                !isCameraActive || !isStable || !currentReading || isCapturing
+              }
+              className={`capture-button ${isCapturing ? "recording" : ""}`}>
               <Target className="w-8 h-8 text-white" />
             </button>
             <div className="text-xs text-gray-400 mt-2 text-center">
@@ -301,17 +328,15 @@ const CapturePage: React.FC = () => {
           {/* Right Controls */}
           <div className="space-y-3">
             <button
-              onClick={() => {/* Navigate to points list */}}
-              className="nav-button"
-            >
+              onClick={() => onNavigate?.("points")}
+              className="nav-button">
               <List className="w-5 h-5" />
               Puntos
             </button>
-            
+
             <button
-              onClick={() => {/* Navigate to export */}}
-              className="nav-button"
-            >
+              onClick={() => onNavigate?.("export")}
+              className="nav-button">
               <Share2 className="w-5 h-5" />
               Exportar
             </button>

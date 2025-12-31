@@ -1,23 +1,24 @@
-import React, { useState, useEffect } from 'react';
-import { Camera, List, Share2, Settings } from 'lucide-react';
-import CapturePage from './components/CapturePage';
-import PointsList from './components/PointsList';
-import ExportPage from './components/ExportPage';
+import React, { useState, useEffect } from "react";
+import { Camera, List, Share2, Settings } from "lucide-react";
+import CapturePage from "./components/CapturePage";
+import PointsList from "./components/PointsList";
+import ExportPage from "./components/ExportPage";
 
-export type Page = 'capture' | 'points' | 'export' | 'settings';
+export type Page = "capture" | "points" | "export" | "settings";
 
 const App: React.FC = () => {
-  const [currentPage, setCurrentPage] = useState<Page>('capture');
+  const [currentPage, setCurrentPage] = useState<Page>("capture");
   const [isPWAInstalled, setIsPWAInstalled] = useState(false);
 
   useEffect(() => {
     // Check if app is installed as PWA
     const checkPWAInstallation = () => {
-      if ('serviceWorker' in navigator) {
+      if ("serviceWorker" in navigator) {
         navigator.serviceWorker.ready.then(() => {
           // Check if running in standalone mode (installed PWA)
-          const isStandalone = window.matchMedia('(display-mode: standalone)').matches ||
-                              (window.navigator as any).standalone === true;
+          const isStandalone =
+            window.matchMedia("(display-mode: standalone)").matches ||
+            (window.navigator as any).standalone === true;
           setIsPWAInstalled(isStandalone);
         });
       }
@@ -26,27 +27,29 @@ const App: React.FC = () => {
     checkPWAInstallation();
 
     // Listen for PWA installation
-    window.addEventListener('appinstalled', () => {
+    window.addEventListener("appinstalled", () => {
       setIsPWAInstalled(true);
     });
   }, []);
 
   const renderPage = () => {
     switch (currentPage) {
-      case 'capture':
-        return <CapturePage />;
-      case 'points':
+      case "capture":
+        return <CapturePage onNavigate={setCurrentPage} />;
+      case "points":
         return <PointsList />;
-      case 'export':
+      case "export":
         return <ExportPage />;
-      case 'settings':
-        return <div className="flex items-center justify-center h-full bg-space-950 text-white">
-          <div className="text-center">
-            <Settings className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-            <h2 className="text-xl font-bold mb-2">Configuración</h2>
-            <p className="text-gray-400">Próximamente...</p>
+      case "settings":
+        return (
+          <div className="flex items-center justify-center h-full bg-space-950 text-white">
+            <div className="text-center">
+              <Settings className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+              <h2 className="text-xl font-bold mb-2">Configuración</h2>
+              <p className="text-gray-400">Próximamente...</p>
+            </div>
           </div>
-        </div>;
+        );
       default:
         return <CapturePage />;
     }
@@ -61,10 +64,9 @@ const App: React.FC = () => {
       onClick={() => setCurrentPage(page)}
       className={`flex flex-col items-center p-3 rounded-lg transition-all ${
         currentPage === page
-          ? 'bg-astro-600 text-white'
-          : 'text-gray-400 hover:text-white hover:bg-space-800'
-      }`}
-    >
+          ? "bg-astro-600 text-white"
+          : "text-gray-400 hover:text-white hover:bg-space-800"
+      }`}>
       {icon}
       <span className="text-xs mt-1">{label}</span>
     </button>
@@ -73,9 +75,7 @@ const App: React.FC = () => {
   return (
     <div className="h-screen bg-space-950 flex flex-col">
       {/* Main Content */}
-      <div className="flex-1 overflow-hidden">
-        {renderPage()}
-      </div>
+      <div className="flex-1 overflow-hidden">{renderPage()}</div>
 
       {/* Bottom Navigation */}
       <div className="bg-space-900 border-t border-space-700 p-2">
@@ -116,13 +116,15 @@ const App: React.FC = () => {
             <button
               onClick={() => {
                 // This will be handled by the PWA install prompt
-                if ('serviceWorker' in navigator && 'BeforeInstallPromptEvent' in window) {
+                if (
+                  "serviceWorker" in navigator &&
+                  "BeforeInstallPromptEvent" in window
+                ) {
                   // The browser will show the install prompt
-                  window.dispatchEvent(new Event('beforeinstallprompt'));
+                  window.dispatchEvent(new Event("beforeinstallprompt"));
                 }
               }}
-              className="bg-white text-astro-600 px-4 py-2 rounded-lg font-medium hover:bg-gray-100 transition-colors"
-            >
+              className="bg-white text-astro-600 px-4 py-2 rounded-lg font-medium hover:bg-gray-100 transition-colors">
               Instalar
             </button>
           </div>

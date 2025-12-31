@@ -47,9 +47,10 @@ export const endSession = async (sessionId: string): Promise<void> => {
 };
 
 export const getCurrentSession = async (): Promise<HorizonSession | null> => {
-  const sessions = await db.sessions.where("endTime").equals("").toArray();
-
-  return sessions.length > 0 ? sessions[0] : null;
+  const last = await db.sessions.orderBy("startTime").reverse().first();
+  if (!last) return null;
+  if (!last.endTime) return last;
+  return null;
 };
 
 // Point management
