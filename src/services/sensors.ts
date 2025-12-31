@@ -231,16 +231,15 @@ class SensorService {
   private calculateSensorReading(event: DeviceOrientationEvent): SensorReading {
     const alpha = event.alpha ?? 0;
     const beta = event.beta ?? 0;
-    const gamma = event.gamma ?? 0;
-
-    // Basic fusion: adjust pitch by roll to approximate camera altitude
-    const pitch = beta - gamma / 4;
-
     const webkitHeading = (event as any).webkitCompassHeading as
       | number
       | undefined;
-    const azimuth = this.getHeading(webkitHeading, alpha, beta, gamma);
-    const altitude = Math.max(0, Math.min(90, Math.abs(pitch))); // 0 to 90 degrees
+    const azimuth = this.getHeading(
+      webkitHeading,
+      alpha,
+      event.absolute === true
+    );
+    const altitude = Math.max(0, Math.min(90, beta));
 
     return {
       timestamp: Date.now(),
@@ -255,45 +254,21 @@ class SensorService {
   private getHeading(
     webkitHeading: number | undefined,
     alpha: number,
-    beta: number,
-    gamma: number
+    isAbsolute: boolean | undefined
   ): number {
     if (typeof webkitHeading === "number") {
       return this.normalizeAngle(webkitHeading);
     }
-    // Compute compass heading based on alpha/beta/gamma
-    const degtorad = Math.PI / 180;
-    const x = beta * degtorad;
-    const y = gamma * degtorad;
-    const z = alpha * degtorad;
-
-    const cY = Math.cos(y);
-    const cZ = Math.cos(z);
-    const sX = Math.sin(x);
-    const sY = Math.sin(y);
-    const sZ = Math.sin(z);
-
-    const rA = -cZ * sY - sZ * sX * cY;
-    const rB = -sZ * sY + cZ * sX * cY;
-    const heading = Math.atan2(rA, rB) / degtorad;
-    return this.normalizeAngle(heading);
+    if (isAbsolute) {
+      return this.normalizeAngle(alpha);
+    }
+    return this.normalizeAngle(alpha);
   }
 
   private updateGeolocation(position: GeolocationPosition): void {
     if (this.currentReading) {
       this.currentReading.latitude = position.coords.latitude;
       this.currentReading.longitude = position.coords.longitude;
-
-      // Adjust azimuth based on magnetic declination if available
-      // This is a simplified approach - in a real app, you'd use a magnetic declination API
-      const declination = this.estimateMagneticDeclination(
-        position.coords.latitude,
-        position.coords.longitude
-      );
-
-      this.currentReading.azimuth = this.normalizeAngle(
-        this.currentReading.azimuth + declination
-      );
     }
   }
 
@@ -369,34 +344,7 @@ class SensorService {
     return normalized;
   }
 
-  private estimateMagneticDeclination(
-    latitude: number,
-    longitude: number
-  ): number {
-    // Simplified magnetic declination estimation
-    // In a real app, you'd use the NOAA magnetic declination API or similar
-
-    // Rough approximation for common locations
-    if (latitude > 30 && latitude < 60 && longitude > -130 && longitude < -60) {
-      return -15; // North America
-    } else if (
-      latitude > 35 &&
-      latitude < 70 &&
-      longitude > -10 &&
-      longitude < 40
-    ) {
-      return 2; // Europe
-    } else if (
-      latitude > -40 &&
-      latitude < 10 &&
-      longitude > 110 &&
-      longitude < 160
-    ) {
-      return 8; // Australia
-    }
-
-    return 0; // Default
-  }
+  // Magnetic declination is not applied in current implementation
 
   getCurrentReading(): SensorReading | null {
     return this.currentReading;
