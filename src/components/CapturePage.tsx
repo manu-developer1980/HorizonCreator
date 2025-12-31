@@ -1,12 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import {
-  Camera,
-  CameraOff,
-  Target,
-  Settings,
-  List,
-  Share2,
-} from "lucide-react";
+import { Camera, CameraOff, Target, Settings } from "lucide-react";
 import { sensorService } from "../services/sensors";
 import { cameraService } from "../services/camera";
 import {
@@ -28,12 +21,11 @@ const CapturePage: React.FC<{
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [pointCount, setPointCount] = useState(0);
   const [accuracyLevel, setAccuracyLevel] = useState<AccuracyLevel>("poor");
-  const [isStable, setIsStable] = useState(false);
+
   // const [stabilityScore, setStabilityScore] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
   const videoRef = useRef<HTMLVideoElement>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     initializeServices();
@@ -64,7 +56,6 @@ const CapturePage: React.FC<{
         setCurrentReading(reading);
         const level = sensorService.getAccuracyLevel(reading.accuracy);
         setAccuracyLevel(level);
-        setIsStable(sensorService.isDeviceStable());
         // setStabilityScore(sensorService.getStabilityScore());
       });
 
@@ -106,7 +97,7 @@ const CapturePage: React.FC<{
       setError(null);
       // Solicitar permisos de sensores bajo gesto de usuario
       await sensorService.requestPermissions();
-      const stream = await cameraService.startCamera(true); // Prefer back camera
+      await cameraService.startCamera(true); // Prefer back camera
       setIsCameraActive(true);
 
       if (videoRef.current) {
@@ -119,7 +110,7 @@ const CapturePage: React.FC<{
             cameraService.getCurrentStream()
           ) {
             try {
-              const alt = await cameraService.switchCamera();
+              await cameraService.switchCamera();
               await cameraService.attachTo(v);
             } catch (e) {
               console.warn("Switch camera failed:", e);
