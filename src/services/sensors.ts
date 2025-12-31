@@ -13,9 +13,9 @@ class SensorService {
   private stabilityThreshold = 2.0; // degrees
   private stabilityWindow = 1000; // ms
   private readingHistory: SensorReading[] = [];
-  private filteredAzimuth: number | null = null;
-  private filteredAltitude: number | null = null;
-  private lpAlpha = 0.08;
+  private azimuthBuffer: number[] = [];
+  private altitudeBuffer: number[] = [];
+  private bufferSize = 12;
 
   async checkPermissions(): Promise<SensorStatus> {
     const status: SensorStatus = {
@@ -316,16 +316,12 @@ class SensorService {
 
   private updateReading(reading: SensorReading): void {
     this.currentReading = reading;
-    if (this.filteredAzimuth == null) this.filteredAzimuth = reading.azimuth;
-    if (this.filteredAltitude == null) this.filteredAltitude = reading.altitude;
-    this.filteredAzimuth =
-      this.filteredAzimuth +
-      this.lpAlpha * (reading.azimuth - this.filteredAzimuth);
-    this.filteredAltitude =
-      this.filteredAltitude +
-      this.lpAlpha * (reading.altitude - this.filteredAltitude);
-    reading.azimuth = this.normalizeAngle(this.filteredAzimuth);
-    reading.altitude = Math.max(0, Math.min(90, this.filteredAltitude));
+    this.pushBuffer(this.azimuthBuffer, reading.azimuth, this.bufferSize);
+    this.pushBuffer(this.altitudeBuffer, reading.altitude, this.bufferSize);
+    const avgAz = this.computeCircularMean(this.azimuthBuffer);
+    const avgAlt = this.computeArithmeticMean(this.altitudeBuffer);
+    reading.azimuth = this.normalizeAngle(avgAz);
+    reading.altitude = Math.max(0, Math.min(90, avgAlt));
     this.readingHistory.push(reading);
 
     // Keep only recent readings for stability analysis
@@ -394,6 +390,30 @@ class SensorService {
     let normalized = angle % 360;
     if (normalized < 0) normalized += 360;
     return normalized;
+  }
+
+  private pushBuffer(buffer: number[], value: number, size: number): void {
+    buffer.push(value);
+    if (buffer.length > size) buffer.shift();
+  }
+
+  private computeCircularMean(degrees: number[]): number {
+    if (degrees.length === 0) return 0;
+    const degtorad = Math.PI / 180;
+    let sumSin = 0;
+    let sumCos = 0;
+    for (const d of degrees) {
+      const r = d * degtorad;
+      sumSin += Math.sin(r);
+      sumCos += Math.cos(r);
+    }
+    const mean = (Math.atan2(sumSin, sumCos) * 180) / Math.PI;
+    return mean < 0 ? mean + 360 : mean;
+  }
+
+  private computeArithmeticMean(values: number[]): number {
+    if (values.length === 0) return 0;
+    return values.reduce((s, v) => s + v, 0) / values.length;
   }
 
   // Magnetic declination is not applied in current implementation
