@@ -213,65 +213,9 @@ const CapturePage: React.FC<{
   }
 
   return (
-    <div className="relative h-full bg-space-950 overflow-hidden">
-      {/* Camera View */}
-      <div ref={containerRef} className="absolute inset-0">
-        {isCameraActive ? (
-          <>
-            <video
-              ref={videoRef}
-              className="w-full h-full object-cover"
-              autoPlay
-              playsInline
-              muted
-            />
-            <div className="camera-overlay" />
-          </>
-        ) : (
-          <div className="w-full h-full bg-space-900 flex items-center justify-center">
-            <div className="text-center space-y-3">
-              <CameraOff className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-              <p className="text-gray-300 mb-6">Cámara desactivada</p>
-              <button onClick={startCamera} className="nav-button">
-                <Camera className="w-5 h-5" />
-                Activar Cámara
-              </button>
-              <div>
-                <button
-                  onClick={async () => {
-                    try {
-                      await cameraService.switchCamera();
-                      if (videoRef.current)
-                        await cameraService.attachTo(videoRef.current);
-                    } catch (e) {
-                      setError(
-                        e instanceof Error
-                          ? e.message
-                          : "No se pudo cambiar cámara"
-                      );
-                    }
-                  }}
-                  className="nav-button">
-                  Cambiar cámara
-                </button>
-              </div>
-              <div className="mt-2">
-                <button
-                  onClick={() => sensorService.requestPermissions()}
-                  className="nav-button">
-                  Activar Sensores
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Crosshair */}
-      <div className="crosshair z-10" />
-
+    <div className="h-full bg-space-950 flex flex-col">
       {/* Top HUD bar */}
-      <div className="hud-bar">
+      <div className="w-full flex items-center justify-between gap-4 p-4">
         <div className="flex items-center gap-4">
           <div className="hud-element">
             <div className="sensor-label">Precisión</div>
@@ -306,47 +250,82 @@ const CapturePage: React.FC<{
         </div>
       </div>
 
-      {/* Side HUD */}
-      <div className="absolute top-1/2 left-6 transform -translate-y-1/2 z-20">
-        <div className="hud-element mb-4">
-          <div className="sensor-label">Azimut</div>
-          <div className="sensor-reading">
-            {currentReading ? `${currentReading.azimuth.toFixed(1)}°` : "---°"}
+      {/* Main content: grid layout */}
+      <div className="flex-1 grid grid-cols-12 gap-4 p-4">
+        {/* Video area with overlay layers via grid cell */}
+        <div className="col-span-9 grid rounded-lg overflow-hidden bg-black">
+          <div className="row-start-1 col-start-1">
+            {isCameraActive ? (
+              <video
+                ref={videoRef}
+                className="w-full h-full object-cover"
+                autoPlay
+                playsInline
+                muted
+              />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center bg-space-900">
+                <div className="text-center space-y-3">
+                  <CameraOff className="w-16 h-16 text-gray-400 mx-auto mb-2" />
+                  <p className="text-gray-300">Cámara desactivada</p>
+                  <div className="flex flex-wrap justify-center gap-3">
+                    <button onClick={startCamera} className="nav-button">
+                      <Camera className="w-5 h-5" />
+                      Activar Cámara
+                    </button>
+                    <button
+                      onClick={() => sensorService.requestPermissions()}
+                      className="nav-button">
+                      Activar Sensores
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
+          {/* Overlay crosshair */}
+          <div className="row-start-1 col-start-1 overlay-crosshair" />
+          {/* Gradient overlay */}
+          <div className="row-start-1 col-start-1 camera-gradient" />
         </div>
 
-        <div className="hud-element">
-          <div className="sensor-label">Altitud</div>
-          <div className="sensor-reading">
-            {currentReading ? `${currentReading.altitude.toFixed(1)}°` : "---°"}
+        {/* Side stats */}
+        <div className="col-span-3 flex flex-col gap-4">
+          <div className="hud-element">
+            <div className="sensor-label">Azimut</div>
+            <div className="sensor-reading">
+              {currentReading
+                ? `${currentReading.azimuth.toFixed(1)}°`
+                : "---°"}
+            </div>
+          </div>
+          <div className="hud-element">
+            <div className="sensor-label">Altitud</div>
+            <div className="sensor-reading">
+              {currentReading
+                ? `${currentReading.altitude.toFixed(1)}°`
+                : "---°"}
+            </div>
+          </div>
+          <div className="hud-element">
+            <div className="sensor-label">Puntos</div>
+            <div className="sensor-reading">{pointCount}</div>
+          </div>
+          <div className="hud-element">
+            <div className="sensor-label">Estado</div>
+            <div
+              className={`sensor-reading ${
+                isCapturing ? "text-blue-400" : "text-green-400"
+              }`}>
+              {isCapturing ? "Capturando..." : "Listo"}
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Right Side HUD */}
-      <div className="absolute top-1/2 right-6 transform -translate-y-1/2 z-20 space-y-4">
-        <div className="hud-element">
-          <div className="sensor-label">Puntos</div>
-          <div className="sensor-reading">{pointCount}</div>
-        </div>
-        <div className="hud-element">
-          <div className="sensor-label">Estado</div>
-          <div
-            className={`sensor-reading ${
-              isCapturing ? "text-blue-400" : "text-green-400"
-            }`}>
-            {isCapturing ? "Capturando..." : "Listo"}
-          </div>
-        </div>
-      </div>
-
-      {/* Bottom Controls */}
-      <div className="absolute bottom-8 left-6 right-6 z-30 safe-bottom">
-        <div className="flex justify-between items-end gap-6">
-          {/* Left Controls (vacío, controles movidos a top bar) */}
-          <div />
-
-          {/* Center Capture Button */}
+      {/* Bottom capture */}
+      <div className="safe-bottom p-4">
+        <div className="flex justify-center">
           <div className="flex flex-col items-center">
             <button
               onClick={capturePoint}
@@ -360,9 +339,6 @@ const CapturePage: React.FC<{
               {isCapturing && "Capturando..."}
             </div>
           </div>
-
-          {/* Right Controls removed to evitar duplicación (usar navegación inferior) */}
-          <div />
         </div>
       </div>
     </div>

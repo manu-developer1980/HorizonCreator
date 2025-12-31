@@ -60,46 +60,22 @@ body {
   background: #64748b;
 }
 
-/* Crosshair styles */
-.crosshair {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
+/* Crosshair overlay using background, no absolute positioning */
+.overlay-crosshair {
   pointer-events: none;
-  z-index: 10;
+  background-image: linear-gradient(
+      rgba(255, 255, 255, 0.85),
+      rgba(255, 255, 255, 0.85)
+    ),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.85), rgba(255, 255, 255, 0.85));
+  background-size: 2px 40px, 40px 2px;
+  background-repeat: no-repeat;
+  background-position: center;
 }
 
-.crosshair::before,
-.crosshair::after {
-  content: "";
-  position: absolute;
-  background: rgba(255, 255, 255, 0.8);
-}
-
-.crosshair::before {
-  width: 2px;
-  height: 40px;
-  top: -20px;
-  left: 50%;
-  transform: translateX(-50%);
-}
-
-.crosshair::after {
-  width: 40px;
-  height: 2px;
-  left: -20px;
-  top: 50%;
-  transform: translateY(-50%);
-}
-
-/* Camera overlay */
-.camera-overlay {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
+/* Camera overlay without absolute (use grid layer) */
+.camera-gradient {
+  pointer-events: none;
   background: linear-gradient(
     to bottom,
     rgba(2, 6, 23, 0.7) 0%,
@@ -107,7 +83,6 @@ body {
     transparent 80%,
     rgba(2, 6, 23, 0.7) 100%
   );
-  pointer-events: none;
 }
 
 /* HUD elements */
