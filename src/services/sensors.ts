@@ -15,7 +15,7 @@ class SensorService {
   private readingHistory: SensorReading[] = [];
   private filteredAzimuth: number | null = null;
   private filteredAltitude: number | null = null;
-  private lpAlpha = 0.2;
+  private lpAlpha = 0.08;
 
   async checkPermissions(): Promise<SensorStatus> {
     const status: SensorStatus = {
@@ -260,8 +260,15 @@ class SensorService {
     const webkitHeading = (event as any).webkitCompassHeading as
       | number
       | undefined;
-    const azimuth = this.getHeading(webkitHeading, alpha, beta, gamma);
-    const altitude = Math.max(0, Math.min(90, 90 - Math.abs(beta)));
+    let azimuth: number;
+    if (typeof webkitHeading === "number") {
+      azimuth = this.normalizeAngle(webkitHeading);
+    } else if ((event as any).absolute === true) {
+      azimuth = this.normalizeAngle(alpha);
+    } else {
+      azimuth = this.getHeading(webkitHeading, alpha, beta, gamma);
+    }
+    const altitude = Math.max(0, Math.min(90, beta + 90));
 
     return {
       timestamp: Date.now(),
