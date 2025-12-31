@@ -87,6 +87,19 @@ class SensorService {
       results.push(true); // Assume granted if no permission API
     }
 
+    if (
+      typeof DeviceMotionEvent !== "undefined" &&
+      "requestPermission" in (DeviceMotionEvent as any)
+    ) {
+      try {
+        const permission = await (DeviceMotionEvent as any).requestPermission();
+        results.push(permission === "granted");
+      } catch (error) {
+        console.error("Device motion permission request failed:", error);
+        results.push(false);
+      }
+    }
+
     // Request geolocation permission by getting current position
     if ("geolocation" in navigator) {
       try {
@@ -105,6 +118,15 @@ class SensorService {
     }
 
     return results.every((result) => result);
+  }
+
+  async enableSensorsWithGesture(
+    callback?: (reading: SensorReading) => void
+  ): Promise<boolean> {
+    const ok = await this.requestPermissions();
+    this.stopListening();
+    this.startListening(callback);
+    return ok;
   }
 
   startListening(callback?: (reading: SensorReading) => void): void {
@@ -231,15 +253,12 @@ class SensorService {
   private calculateSensorReading(event: DeviceOrientationEvent): SensorReading {
     const alpha = event.alpha ?? 0;
     const beta = event.beta ?? 0;
+    const gamma = event.gamma ?? 0;
     const webkitHeading = (event as any).webkitCompassHeading as
       | number
       | undefined;
-    const azimuth = this.getHeading(
-      webkitHeading,
-      alpha,
-      event.absolute === true
-    );
-    const altitude = Math.max(0, Math.min(90, beta));
+    const azimuth = this.getHeading(webkitHeading, alpha, beta, gamma);
+    const altitude = Math.max(0, Math.min(90, Math.abs(beta)));
 
     return {
       timestamp: Date.now(),
@@ -254,15 +273,28 @@ class SensorService {
   private getHeading(
     webkitHeading: number | undefined,
     alpha: number,
-    isAbsolute: boolean | undefined
+    beta: number,
+    gamma: number
   ): number {
     if (typeof webkitHeading === "number") {
       return this.normalizeAngle(webkitHeading);
     }
-    if (isAbsolute) {
-      return this.normalizeAngle(alpha);
-    }
-    return this.normalizeAngle(alpha);
+    const degtorad = Math.PI / 180;
+    const x = beta * degtorad;
+    const y = gamma * degtorad;
+    const z = alpha * degtorad;
+    const cY = Math.cos(y);
+    const cZ = Math.cos(z);
+    const sX = Math.sin(x);
+    const sY = Math.sin(y);
+    const sZ = Math.sin(z);
+    const Vx = -cZ * sY - sZ * sX * cY;
+    const Vy = -sZ * sY + cZ * sX * cY;
+    let heading = Math.atan(Vx / Vy);
+    if (Vy < 0) heading += Math.PI;
+    else if (Vx < 0) heading += 2 * Math.PI;
+    heading *= 180 / Math.PI;
+    return this.normalizeAngle(heading);
   }
 
   private updateGeolocation(position: GeolocationPosition): void {

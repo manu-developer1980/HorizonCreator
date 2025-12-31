@@ -96,7 +96,11 @@ const CapturePage: React.FC<{
     try {
       setError(null);
       // Solicitar permisos de sensores bajo gesto de usuario
-      await sensorService.requestPermissions();
+      await sensorService.enableSensorsWithGesture((reading) => {
+        setCurrentReading(reading);
+        const level = sensorService.getAccuracyLevel(reading.accuracy);
+        setAccuracyLevel(level);
+      });
       await cameraService.startCamera(true); // Prefer back camera
       setIsCameraActive(true);
 
@@ -265,7 +269,15 @@ const CapturePage: React.FC<{
                       Activar Cámara
                     </button>
                     <button
-                      onClick={() => sensorService.requestPermissions()}
+                      onClick={() =>
+                        sensorService.enableSensorsWithGesture((reading) => {
+                          setCurrentReading(reading);
+                          const level = sensorService.getAccuracyLevel(
+                            reading.accuracy
+                          );
+                          setAccuracyLevel(level);
+                        })
+                      }
                       className="nav-button">
                       Activar Sensores
                     </button>
