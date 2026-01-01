@@ -1,0 +1,62 @@
+{
+  "expo": {
+    "name": "Horizon NINA",
+    "slug": "horizon-nina-app",
+    "version": "1.0.1",
+    "scheme": "horizonnina",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "runtimeVersion": {
+      "policy": "sdkVersion"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.tuapp.horizonnina",
+      "buildNumber": "2",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "This app needs access to your location to calibrate compass sensors",
+        "NSMotionUsageDescription": "This app needs access to motion sensors to capture horizon data",
+        "NSCameraUsageDescription": "This app uses the camera as a viewfinder to help you aim at the horizon",
+        "UIFileSharingEnabled": true,
+        "LSSupportsOpeningDocumentsInPlace": true
+      }
+    },
+    "android": {
+      "versionCode": 2,
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#ffffff"
+      },
+      "package": "com.tuapp.horizonnina",
+      "permissions": [
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.CAMERA",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.READ_EXTERNAL_STORAGE"
+      ]
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      [
+        "expo-sensors",
+        {
+          "motionSensorPermission": "Allow $(PRODUCT_NAME) to access motion sensors to capture horizon data."
+        }
+      ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "2487eac2-0de5-48bb-8aa1-fc52fe344864"
+      }
+    }
+  }
+}
