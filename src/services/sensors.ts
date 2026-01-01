@@ -16,6 +16,7 @@ class SensorService {
   private azimuthBuffer: number[] = [];
   private altitudeBuffer: number[] = [];
   private bufferSize = 12;
+  private gravityVector: { x: number; y: number; z: number } | null = null;
 
   async checkPermissions(): Promise<SensorStatus> {
     const status: SensorStatus = {
@@ -251,6 +252,20 @@ class SensorService {
         );
       }
     }
+
+    // Capture gravity vector for robust altitude calculation
+    const ag = (event as any).accelerationIncludingGravity as
+      | DeviceMotionEventAcceleration
+      | undefined;
+    if (ag) {
+      const gx = ag.x || 0;
+      const gy = ag.y || 0;
+      const gz = ag.z || 0;
+      const mag = Math.sqrt(gx * gx + gy * gy + gz * gz);
+      if (mag > 1e-6) {
+        this.gravityVector = { x: gx / mag, y: gy / mag, z: gz / mag };
+      }
+    }
   }
 
   private calculateSensorReading(event: DeviceOrientationEvent): SensorReading {
@@ -317,7 +332,17 @@ class SensorService {
   private updateReading(reading: SensorReading): void {
     this.currentReading = reading;
     this.pushBuffer(this.azimuthBuffer, reading.azimuth, this.bufferSize);
-    this.pushBuffer(this.altitudeBuffer, reading.altitude, this.bufferSize);
+
+    // Prefer altitude derived from gravity vector when available
+    let computedAltitude = reading.altitude;
+    if (this.gravityVector) {
+      const dot = -this.gravityVector.z; // forward (0,0,-1) dot gravity_unit
+      const clamped = Math.max(-1, Math.min(1, dot));
+      const angleFG = Math.acos(clamped) * (180 / Math.PI); // 0..180
+      computedAltitude = Math.max(0, Math.min(90, 90 - angleFG));
+    }
+
+    this.pushBuffer(this.altitudeBuffer, computedAltitude, this.bufferSize);
     const avgAz = this.computeCircularMean(this.azimuthBuffer);
     const avgAlt = this.computeArithmeticMean(this.altitudeBuffer);
     reading.azimuth = this.normalizeAngle(avgAz);
