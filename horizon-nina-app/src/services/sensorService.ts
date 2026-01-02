@@ -100,7 +100,10 @@ class SensorService {
     // If it's negative when pointing up, we just negate the result.
 
     // CHANGE: Removed the negation to flip the sign back.
-    let altitude = Math.atan2(G.z, G.y) * (180 / Math.PI);
+    // Inverted logic: We want +90 when looking UP (Zenith), and -90 when looking DOWN (Nadir).
+    // Current: Vertical(0) -> 0. Face Up(Look Down) -> +90. Face Down(Look Up) -> -90.
+    // So we need to negate it to get +90 for Look Up.
+    let altitude = -Math.atan2(G.z, G.y) * (180 / Math.PI);
 
     // 2. Calculate Azimuth
     // Cross Product: a x b = (ay*bz - az*by, az*bx - ax*bz, ax*by - ay*bx)
@@ -116,8 +119,13 @@ class SensorService {
     const normN = Math.sqrt(Nx * Nx + Ny * Ny + Nz * Nz);
     const N = { x: Nx / normN, y: Ny / normN, z: Nz / normN };
 
-    // Azimuth
-    let azimuth = Math.atan2(E.y, N.y) * (180 / Math.PI);
+    // Azimuth calculation
+    // We use the projection of the North and East vectors onto the Z-axis (Camera axis).
+    // When holding the device vertically (portrait), the Y-axis points to the sky (Zenith),
+    // so its projection on the horizontal plane is unstable (Gimbal Lock).
+    // The Camera points along the -Z axis.
+    // We calculate the azimuth of the -Z axis projected onto the horizontal plane.
+    let azimuth = Math.atan2(-E.z, -N.z) * (180 / Math.PI);
     if (azimuth < 0) azimuth += 360;
 
     // Update stability
