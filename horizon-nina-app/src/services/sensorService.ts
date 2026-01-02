@@ -1,157 +1,206 @@
-import { DeviceMotion } from 'expo-sensors';
-import * as Location from 'expo-location';
-import { DeviceMotionData, SensorAccuracy, CalibrationResult } from '../types';
-import { SENSOR_CONFIG } from '../constants';
+import { Accelerometer, Magnetometer } from "expo-sensors";
+import { DeviceMotionData, SensorAccuracy, CalibrationResult } from "../types";
+import { SENSOR_CONFIG } from "../constants";
 
 class SensorService {
-  private subscription: any = null;
-  private headingSubscription: Location.LocationSubscription | null = null;
+  private accelSubscription: any = null;
+  private magSubscription: any = null;
   private isListening = false;
   private accuracy: SensorAccuracy = {
     motion: 0,
     orientation: 0,
     overall: 0,
   };
-  private lastRotation: { alpha: number; beta: number; gamma: number } | null = null;
-  private deltaBuffer: number[] = [];
-  private lastHeading: number | null = null;
 
-  async startMotionUpdates(callback: (data: DeviceMotionData) => void): Promise<void> {
+  // Buffers for LPF
+  private lastG: { x: number; y: number; z: number } | null = null;
+  private lastM: { x: number; y: number; z: number } | null = null;
+
+  // Buffers for stability calculation
+  private deltaBuffer: number[] = [];
+  private lastAz: number | null = null;
+  private lastAlt: number | null = null;
+
+  async startMotionUpdates(
+    callback: (data: DeviceMotionData) => void
+  ): Promise<void> {
     try {
-      await DeviceMotion.setUpdateInterval(SENSOR_CONFIG.UPDATE_INTERVAL);
-      // Intenta suscribirte al heading absoluto del dispositivo
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status === 'granted') {
-        this.headingSubscription = await Location.watchHeadingAsync((h) => {
-          const heading = (h.trueHeading ?? h.magHeading ?? 0);
-          this.lastHeading = Math.round(((heading % 360) + 360) % 360);
-        });
-      }
-      
-      this.subscription = DeviceMotion.addListener((motionData) => {
-        if (!motionData.rotation || !motionData.acceleration) {
-          return;
+      // Set update intervals
+      await Accelerometer.setUpdateInterval(SENSOR_CONFIG.UPDATE_INTERVAL);
+      await Magnetometer.setUpdateInterval(SENSOR_CONFIG.UPDATE_INTERVAL);
+
+      this.accelSubscription = Accelerometer.addListener((accelData) => {
+        // Apply LPF to Gravity
+        if (this.lastG) {
+          const alpha = 0.2; // LPF factor (0-1). Lower is smoother/slower.
+          this.lastG = {
+            x: this.lastG.x + alpha * (accelData.x - this.lastG.x),
+            y: this.lastG.y + alpha * (accelData.y - this.lastG.y),
+            z: this.lastG.z + alpha * (accelData.z - this.lastG.z),
+          };
+        } else {
+          this.lastG = accelData;
         }
 
-        const processedData: DeviceMotionData = {
-          rotation: {
-            // Usa heading absoluto si está disponible; en caso contrario, yaw
-            alpha: this.lastHeading ?? (motionData.rotation.alpha || 0) * (180 / Math.PI),
-            beta: (motionData.rotation.beta || 0) * (180 / Math.PI),
-            gamma: (motionData.rotation.gamma || 0) * (180 / Math.PI),
-          },
-          acceleration: {
-            x: motionData.acceleration.x || 0,
-            y: motionData.acceleration.y || 0,
-            z: motionData.acceleration.z || 0,
-          },
-          timestamp: motionData.timestamp || Date.now(),
-        };
+        this.processSensorFusion(callback);
+      });
 
-        this.updateAccuracy(processedData);
-        callback(processedData);
+      this.magSubscription = Magnetometer.addListener((magData) => {
+        // Apply LPF to Magnetometer
+        if (this.lastM) {
+          const alpha = 0.1; // Smoother for compass
+          this.lastM = {
+            x: this.lastM.x + alpha * (magData.x - this.lastM.x),
+            y: this.lastM.y + alpha * (magData.y - this.lastM.y),
+            z: this.lastM.z + alpha * (magData.z - this.lastM.z),
+          };
+        } else {
+          this.lastM = magData;
+        }
+
+        this.processSensorFusion(callback);
       });
 
       this.isListening = true;
     } catch (error) {
-      console.error('Error starting motion updates:', error);
-      throw new Error('Failed to start motion sensor updates');
+      console.error("Error starting motion updates:", error);
+      throw new Error("Failed to start motion sensor updates");
     }
   }
 
-  async stopMotionUpdates(): Promise<void> {
-    try {
-      if (this.subscription) {
-        this.subscription.remove();
-        this.subscription = null;
-      }
-      if (this.headingSubscription) {
-        this.headingSubscription.remove();
-        this.headingSubscription = null;
-      }
-      this.isListening = false;
-    } catch (error) {
-      console.error('Error stopping motion updates:', error);
-      throw new Error('Failed to stop motion sensor updates');
-    }
+  private processSensorFusion(callback: (data: DeviceMotionData) => void) {
+    if (!this.lastG || !this.lastM) return;
+
+    // 1. Calculate Pitch (Altitude) from Gravity
+    const G = this.lastG;
+    const M = this.lastM;
+
+    // Normalize G
+    const normG = Math.sqrt(G.x * G.x + G.y * G.y + G.z * G.z);
+    const g = { x: G.x / normG, y: G.y / normG, z: G.z / normG };
+
+    // Calculate Altitude (Pitch)
+    // Formula: atan2(z, y) * 180/PI
+    // Vertical (z=0, y=1) -> 0.
+    // Zenith (z=1, y=0) -> 90.
+    // Face Down (z=-1, y=0) -> -90.
+
+    // Inverted logic as requested:
+    // If we want +90 when looking UP (Zenith), and -90 when looking DOWN (Nadir).
+    // Original formula: atan2(G.z, G.y).
+    // When looking UP (Zenith), phone Z is vertical. Gravity pulls DOWN (-Z).
+    // So Z reads -1g (reaction is UP?).
+    // No, standard accelerometer: Resting flat face up, Z = +9.8 (reaction UP).
+    // So Zenith (face up): Z = +1. Y = 0. atan2(1, 0) = 90.
+    // Vertical: Y = +1. Z = 0. atan2(0, 1) = 0.
+    // Looking DOWN (Nadir, face down): Z = -1. Y = 0. atan2(-1, 0) = -90.
+
+    // Wait, "al apuntar hacia arriba sale negativo".
+    // This means my previous assumption about Z axis was inverted for this device/lib.
+    // If it's negative when pointing up, we just negate the result.
+
+    // CHANGE: Removed the negation to flip the sign back.
+    let altitude = Math.atan2(G.z, G.y) * (180 / Math.PI);
+
+    // 2. Calculate Azimuth
+    // Cross Product: a x b = (ay*bz - az*by, az*bx - ax*bz, ax*by - ay*bx)
+    const Ex = M.y * G.z - M.z * G.y;
+    const Ey = M.z * G.x - M.x * G.z;
+    const Ez = M.x * G.y - M.y * G.x;
+    const normE = Math.sqrt(Ex * Ex + Ey * Ey + Ez * Ez);
+    const E = { x: Ex / normE, y: Ey / normE, z: Ez / normE };
+
+    const Nx = G.y * E.z - G.z * E.y;
+    const Ny = G.z * E.x - G.x * E.z;
+    const Nz = G.x * E.y - G.y * E.x;
+    const normN = Math.sqrt(Nx * Nx + Ny * Ny + Nz * Nz);
+    const N = { x: Nx / normN, y: Ny / normN, z: Nz / normN };
+
+    // Azimuth
+    let azimuth = Math.atan2(E.y, N.y) * (180 / Math.PI);
+    if (azimuth < 0) azimuth += 360;
+
+    // Update stability
+    this.updateStability(azimuth, altitude);
+
+    const processedData: DeviceMotionData = {
+      rotation: {
+        alpha: azimuth,
+        beta: altitude,
+        gamma: 0, // We don't need roll for now
+      },
+      acceleration: {
+        x: G.x,
+        y: G.y,
+        z: G.z,
+      },
+      timestamp: Date.now(),
+    };
+
+    callback(processedData);
   }
 
-  async calibrateSensors(): Promise<CalibrationResult> {
-    return new Promise((resolve) => {
-      let samples: DeviceMotionData[] = [];
-      const startTime = Date.now();
-      
-      const calibrationInterval = setInterval(() => {
-        if (Date.now() - startTime >= SENSOR_CONFIG.CALIBRATION_DURATION) {
-          clearInterval(calibrationInterval);
-          
-          if (samples.length > 0) {
-            const avgAccuracy = samples.reduce((sum, sample) => {
-              const magnitude = Math.sqrt(
-                sample.acceleration.x ** 2 + 
-                sample.acceleration.y ** 2 + 
-                sample.acceleration.z ** 2
-              );
-              return sum + Math.min(1, magnitude / 9.8);
-            }, 0) / samples.length;
+  private updateStability(az: number, alt: number) {
+    if (this.lastAz !== null && this.lastAlt !== null) {
+      // Calculate minimal difference for circular azimuth
+      let dAz = Math.abs(az - this.lastAz);
+      if (dAz > 180) dAz = 360 - dAz;
 
-            this.accuracy = {
-              motion: Math.round(avgAccuracy * 100) / 100,
-              orientation: Math.round(avgAccuracy * 100) / 100,
-              overall: Math.round(avgAccuracy * 100) / 100,
-            };
+      const dAlt = Math.abs(alt - this.lastAlt);
+      const delta = dAz + dAlt;
 
-            resolve({
-              success: this.accuracy.overall >= SENSOR_CONFIG.MIN_ACCURACY,
-              accuracy: this.accuracy,
-              message: this.accuracy.overall >= SENSOR_CONFIG.MIN_ACCURACY 
-                ? 'Calibration successful' 
-                : 'Low accuracy detected',
-            });
-          } else {
-            resolve({
-              success: false,
-              accuracy: this.accuracy,
-              message: 'No sensor data collected during calibration',
-            });
-          }
-        }
-      }, 100);
-
-      // Collect samples during calibration
-      const tempCallback = (data: DeviceMotionData) => {
-        samples.push(data);
-      };
-
-      this.startMotionUpdates(tempCallback).then(() => {
-        setTimeout(() => {
-          this.stopMotionUpdates();
-        }, SENSOR_CONFIG.CALIBRATION_DURATION);
-      });
-    });
-  }
-
-  getSensorAccuracy(): SensorAccuracy {
-    return { ...this.accuracy };
-  }
-
-  private updateAccuracy(data: DeviceMotionData): void {
-    const rot = data.rotation;
-    if (this.lastRotation) {
-      const deltaAz = Math.abs(rot.alpha - this.lastRotation.alpha);
-      const deltaAlt = Math.abs(rot.beta - this.lastRotation.beta);
-      const delta = deltaAz + deltaAlt;
       this.deltaBuffer.push(delta);
-      if (this.deltaBuffer.length > SENSOR_CONFIG.BUFFER_SIZE) this.deltaBuffer.shift();
-      const avgDelta = this.deltaBuffer.reduce((s, v) => s + v, 0) / (this.deltaBuffer.length || 1);
-      const stability = Math.max(0, Math.min(1, 1 - avgDelta / 30));
+      if (this.deltaBuffer.length > SENSOR_CONFIG.BUFFER_SIZE)
+        this.deltaBuffer.shift();
+
+      const avgDelta =
+        this.deltaBuffer.reduce((a, b) => a + b, 0) / this.deltaBuffer.length;
+
+      // Stability score: 1 if still, 0 if moving fast
+      // Threshold: if avgDelta < 0.5 deg per frame -> Stable
+      const stability = Math.max(0, Math.min(1, 1 - avgDelta / 5));
+
       this.accuracy = {
         motion: stability,
         orientation: stability,
         overall: stability,
       };
     }
-    this.lastRotation = { ...rot };
+    this.lastAz = az;
+    this.lastAlt = alt;
+  }
+
+  async stopMotionUpdates(): Promise<void> {
+    try {
+      if (this.accelSubscription) {
+        this.accelSubscription.remove();
+        this.accelSubscription = null;
+      }
+      if (this.magSubscription) {
+        this.magSubscription.remove();
+        this.magSubscription = null;
+      }
+      this.isListening = false;
+      this.lastG = null;
+      this.lastM = null;
+    } catch (error) {
+      console.error("Error stopping motion updates:", error);
+      throw new Error("Failed to stop motion sensor updates");
+    }
+  }
+
+  async calibrateSensors(): Promise<CalibrationResult> {
+    // With manual fusion, calibration is just "Check stability" or "Reset offsets"
+    // For now we just return current stability
+    return {
+      success: this.accuracy.overall > 0.6,
+      accuracy: this.accuracy,
+      message: "Sensors active",
+    };
+  }
+
+  getSensorAccuracy(): SensorAccuracy {
+    return { ...this.accuracy };
   }
 
   isListening(): boolean {

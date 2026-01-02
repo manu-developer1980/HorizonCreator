@@ -28,16 +28,9 @@ export function clampAltitude(value: number): number {
   return Math.round(value * 10) / 10;
 }
 
-let tiltBaselineDeg = 0;
-export function setTiltBaseline(deg: number) {
-  tiltBaselineDeg = Math.round(deg);
-}
-
+// Revert to direct altitude pass-through since sensorService now computes it correctly
 export function computeAltitudeFromBeta(betaDeg: number): number {
-  let alt = betaDeg - tiltBaselineDeg;
-  if (alt < 0) alt = 0;
-  if (alt > 90) alt = 90;
-  return Math.round(alt * 10) / 10;
+  return clampAltitude(betaDeg);
 }
 
 import { AZIMUTH_OFFSET_DEG } from "../constants";
@@ -51,8 +44,10 @@ export function processDeviceMotionData(
   declination = 0
 ): HorizonPoint[] {
   return data.map((item) => {
+    // Note: item.rotation.alpha is already Azimuth in degrees from sensorService
+    // But we can apply declination if needed
     const azimuth = normalizeAzimuth(item.rotation.alpha, declination);
-    const altitude = computeAltitudeFromBeta(item.rotation.beta);
+    const altitude = clampAltitude(item.rotation.beta);
 
     return {
       azimuth,
@@ -70,7 +65,15 @@ export function calculateAccuracy(data: DeviceMotionData): number {
   );
 
   // Normalize to 0-1 range, where 1 is perfect (9.8 m/s² is standard gravity)
-  const normalizedAccuracy = Math.min(1, magnitude / 9.8);
+  // Actually, magnitude of gravity vector should be approx 1g (normalized in sensorService)
+  // But wait, sensorService passes filtered raw G.
+  // In Expo Accelerometer, 1g = 9.8m/s^2? No, 1g = 1 (approx) if using `Accelerometer`.
+  // Wait, `Accelerometer` returns in g? Docs say "measured in g".
+  // So magnitude should be close to 1.
+
+  const diff = Math.abs(magnitude - 1);
+  const normalizedAccuracy = Math.max(0, 1 - diff * 5); // If diff > 0.2g, accuracy 0.
+
   return Math.round(normalizedAccuracy * 100) / 100;
 }
 
