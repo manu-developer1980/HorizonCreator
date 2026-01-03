@@ -87,19 +87,6 @@ class SensorService {
 
     // Inverted logic as requested:
     // If we want +90 when looking UP (Zenith), and -90 when looking DOWN (Nadir).
-    // Original formula: atan2(G.z, G.y).
-    // When looking UP (Zenith), phone Z is vertical. Gravity pulls DOWN (-Z).
-    // So Z reads -1g (reaction is UP?).
-    // No, standard accelerometer: Resting flat face up, Z = +9.8 (reaction UP).
-    // So Zenith (face up): Z = +1. Y = 0. atan2(1, 0) = 90.
-    // Vertical: Y = +1. Z = 0. atan2(0, 1) = 0.
-    // Looking DOWN (Nadir, face down): Z = -1. Y = 0. atan2(-1, 0) = -90.
-
-    // Wait, "al apuntar hacia arriba sale negativo".
-    // This means my previous assumption about Z axis was inverted for this device/lib.
-    // If it's negative when pointing up, we just negate the result.
-
-    // CHANGE: Inverted sign as requested.
     // Pointing Camera UP (Screen Down) -> G.z is negative -> atan2 gives negative. We want Positive.
     // Pointing Camera DOWN (Screen Up) -> G.z is positive -> atan2 gives positive. We want Negative.
     let altitude = -Math.atan2(G.z, G.y) * (180 / Math.PI);
@@ -118,8 +105,13 @@ class SensorService {
     const normN = Math.sqrt(Nx * Nx + Ny * Ny + Nz * Nz);
     const N = { x: Nx / normN, y: Ny / normN, z: Nz / normN };
 
-    // Azimuth
-    let azimuth = Math.atan2(E.y, N.y) * (180 / Math.PI);
+    // Azimuth calculation
+    // We use the projection of the North and East vectors onto the Z-axis (Camera axis).
+    // When holding the device vertically (portrait), the Y-axis points to the sky (Zenith),
+    // so its projection on the horizontal plane is unstable (Gimbal Lock).
+    // The Camera points along the -Z axis.
+    // We calculate the azimuth of the -Z axis projected onto the horizontal plane.
+    let azimuth = Math.atan2(-E.z, -N.z) * (180 / Math.PI);
     if (azimuth < 0) azimuth += 360;
 
     // Update stability
