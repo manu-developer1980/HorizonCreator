@@ -19,10 +19,15 @@ class ExportService {
         EXPORT_CONFIG.DEFAULT_FILENAME
       }_${new Date().getTime()}${EXPORT_CONFIG.FILE_EXTENSION}`;
 
-      // Use cache directory for sharing
-      const directory = FileSystem.cacheDirectory;
+      // Use cache directory for sharing, fallback to document directory
+      let directory = FileSystem.cacheDirectory;
       if (!directory) {
-        throw new Error("Cache directory is not available");
+          console.warn("Cache directory not available, falling back to document directory");
+          directory = FileSystem.documentDirectory;
+      }
+      
+      if (!directory) {
+        throw new Error("No writable directory available (cache and document directories are null)");
       }
 
       const filePath = `${directory}${filename}`;
