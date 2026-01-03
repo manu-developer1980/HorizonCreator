@@ -175,14 +175,14 @@ Points: ${pointCount}
         await Sharing.shareAsync(filePath, {
           mimeType: "text/plain",
           dialogTitle: "Share Horizon File",
-          UTI: "public.text",
+          UTI: "public.plain-text", // More standard UTI
         });
       } else {
         throw new Error("Sharing is not available on this device");
       }
     } catch (error) {
       console.error("Error sharing file:", error);
-      throw new Error("Failed to share file");
+      throw error; // Re-throw the original error for better debugging in the UI
     }
   }
 

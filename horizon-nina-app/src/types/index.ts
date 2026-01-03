@@ -1,8 +1,8 @@
 export interface HorizonPoint {
-  azimuth: number;      // 0-360 grados
-  altitude: number;     // -90 a 90 grados
-  timestamp: number;    // Unix timestamp
-  accuracy: number;     // Precisión del sensor
+  azimuth: number; // 0-360 grados
+  altitude: number; // -90 a 90 grados
+  timestamp: number; // Unix timestamp
+  accuracy: number; // Precisión del sensor
 }
 
 export interface HorizonData {
@@ -23,17 +23,17 @@ export interface HorizonData {
 }
 
 export interface ExportOptions {
-  resolution: number;     // Grados entre puntos
-  format: 'standard' | 'detailed';
+  resolution: number; // Grados entre puntos
+  format: "standard" | "detailed";
   includeMetadata: boolean;
   interpolateGaps: boolean;
 }
 
 export interface DeviceMotionData {
   rotation: {
-    alpha: number;    // Yaw (azimut)
-    beta: number;     // Pitch
-    gamma: number;    // Roll
+    alpha: number; // Yaw (azimut)
+    beta: number; // Pitch
+    gamma: number; // Roll
   };
   acceleration: {
     x: number;

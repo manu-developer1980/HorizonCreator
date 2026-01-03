@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -7,22 +7,35 @@ import {
   Alert,
   Platform,
   TextInput,
-} from 'react-native';
-import { useDeviceMotion } from '../hooks/useDeviceMotion';
-import { useHorizonData } from '../hooks/useHorizonData';
-import { SensorDisplay } from '../components/capture/SensorDisplay';
-import { CameraViewfinder } from '../components/capture/CameraViewfinder';
-import { CaptureButton } from '../components/capture/CaptureButton';
-import { ProgressIndicator } from '../components/capture/ProgressIndicator';
-import { processDeviceMotionData } from '../utils/calculations';
-import { HorizonPoint } from '../types';
+} from "react-native";
+import { useDeviceMotion } from "../hooks/useDeviceMotion";
+import { useHorizonData } from "../hooks/useHorizonData";
+import { SensorDisplay } from "../components/capture/SensorDisplay";
+import { CameraViewfinder } from "../components/capture/CameraViewfinder";
+import { CaptureButton } from "../components/capture/CaptureButton";
+import { ProgressIndicator } from "../components/capture/ProgressIndicator";
+import { processDeviceMotionData } from "../utils/calculations";
+import { HorizonPoint } from "../types";
 
 export const CaptureScreen: React.FC = () => {
-  const { motionData, isListening, accuracy, startListening, stopListening, calibrate } = useDeviceMotion();
-  const { currentHorizon, addPointToCurrentHorizon, createNewHorizon, saveCurrentHorizon, isHorizonComplete } = useHorizonData();
-  
+  const {
+    motionData,
+    isListening,
+    accuracy,
+    startListening,
+    stopListening,
+    calibrate,
+  } = useDeviceMotion();
+  const {
+    currentHorizon,
+    addPointToCurrentHorizon,
+    createNewHorizon,
+    saveCurrentHorizon,
+    isHorizonComplete,
+  } = useHorizonData();
+
   const [isCapturing, setIsCapturing] = useState(false);
-  const [horizonName, setHorizonName] = useState('');
+  const [horizonName, setHorizonName] = useState("");
   const [showNameInput, setShowNameInput] = useState(false);
 
   useEffect(() => {
@@ -35,9 +48,9 @@ export const CaptureScreen: React.FC = () => {
   const handleStartCapture = () => {
     if (!motionData || accuracy.overall < 0.6) {
       Alert.alert(
-        'Low Sensor Accuracy',
-        'Please calibrate sensors or improve device positioning for better accuracy.',
-        [{ text: 'OK' }]
+        "Low Sensor Accuracy",
+        "Please calibrate sensors or improve device positioning for better accuracy.",
+        [{ text: "OK" }]
       );
       return;
     }
@@ -47,7 +60,7 @@ export const CaptureScreen: React.FC = () => {
 
   const handleCreateHorizon = (name: string) => {
     if (!name.trim()) {
-      Alert.alert('Error', 'Please enter a valid name for the horizon.');
+      Alert.alert("Error", "Please enter a valid name for the horizon.");
       return;
     }
 
@@ -70,8 +83,8 @@ export const CaptureScreen: React.FC = () => {
         addPointToCurrentHorizon(point);
       }
     } catch (error) {
-      console.error('Error capturing point:', error);
-      Alert.alert('Error', 'Failed to capture point. Please try again.');
+      console.error("Error capturing point:", error);
+      Alert.alert("Error", "Failed to capture point. Please try again.");
     }
   };
 
@@ -82,15 +95,23 @@ export const CaptureScreen: React.FC = () => {
     }
 
     const coverage = (currentHorizon.points.length / 72) * 100; // Assuming 5-degree resolution
-    
+
     if (coverage < 50) {
       Alert.alert(
-        'Low Coverage',
-        `You have captured ${currentHorizon.points.length} points (${coverage.toFixed(1)}% coverage). Continue capturing for better results?`,
+        "Low Coverage",
+        `You have captured ${
+          currentHorizon.points.length
+        } points (${coverage.toFixed(
+          1
+        )}% coverage). Continue capturing for better results?`,
         [
-          { text: 'Continue', onPress: () => {} },
-          { text: 'Save Anyway', onPress: handleSaveHorizon },
-          { text: 'Cancel', onPress: () => setIsCapturing(false), style: 'cancel' },
+          { text: "Continue", onPress: () => {} },
+          { text: "Save Anyway", onPress: handleSaveHorizon },
+          {
+            text: "Cancel",
+            onPress: () => setIsCapturing(false),
+            style: "cancel",
+          },
         ]
       );
     } else {
@@ -102,11 +123,11 @@ export const CaptureScreen: React.FC = () => {
     try {
       await saveCurrentHorizon();
       setIsCapturing(false);
-      setHorizonName('');
-      Alert.alert('Success', 'Horizon saved successfully!');
+      setHorizonName("");
+      Alert.alert("Success", "Horizon saved successfully!");
     } catch (error) {
-      console.error('Error saving horizon:', error);
-      Alert.alert('Error', 'Failed to save horizon. Please try again.');
+      console.error("Error saving horizon:", error);
+      Alert.alert("Error", "Failed to save horizon. Please try again.");
     }
   };
 
@@ -114,25 +135,32 @@ export const CaptureScreen: React.FC = () => {
     try {
       const result = await calibrate();
       if (result.success) {
-        Alert.alert('Calibration Complete', 'Sensors calibrated successfully!');
+        Alert.alert("Calibration Complete", "Sensors calibrated successfully!");
       } else {
-        Alert.alert('Calibration Warning', result.message || 'Low accuracy detected. Please try again.');
+        Alert.alert(
+          "Calibration Warning",
+          result.message || "Low accuracy detected. Please try again."
+        );
       }
     } catch (error) {
-      console.error('Error calibrating:', error);
-      Alert.alert('Error', 'Failed to calibrate sensors.');
+      console.error("Error calibrating:", error);
+      Alert.alert("Error", "Failed to calibrate sensors.");
     }
   };
 
-  const coverage = currentHorizon ? (currentHorizon.points.length / 72) * 100 : 0;
+  const coverage = currentHorizon
+    ? (currentHorizon.points.length / 72) * 100
+    : 0;
   const isComplete = currentHorizon ? isHorizonComplete(currentHorizon) : false;
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={styles.contentContainer}>
       <View style={styles.header}>
         <Text style={styles.title}>Horizon Capture</Text>
         <Text style={styles.subtitle}>
-          {isCapturing ? `Capturing: ${horizonName}` : 'Ready to capture'}
+          {isCapturing ? `Capturing: ${horizonName}` : "Ready to capture"}
         </Text>
       </View>
 
@@ -195,13 +223,14 @@ export const CaptureScreen: React.FC = () => {
               autoFocus
             />
             <View style={styles.modalButtons}>
-              <Text style={styles.modalButton} onPress={() => setShowNameInput(false)}>
+              <Text
+                style={styles.modalButton}
+                onPress={() => setShowNameInput(false)}>
                 Cancel
               </Text>
-              <Text 
-                style={[styles.modalButton, styles.modalButtonPrimary]} 
-                onPress={() => handleCreateHorizon(horizonName)}
-              >
+              <Text
+                style={[styles.modalButton, styles.modalButtonPrimary]}
+                onPress={() => handleCreateHorizon(horizonName)}>
                 Create
               </Text>
             </View>
@@ -215,7 +244,7 @@ export const CaptureScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: "#f5f5f5",
   },
   contentContainer: {
     padding: 16,
@@ -226,84 +255,84 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 28,
-    fontWeight: 'bold',
-    color: '#333',
-    textAlign: 'center',
+    fontWeight: "bold",
+    color: "#333",
+    textAlign: "center",
   },
   subtitle: {
     fontSize: 16,
-    color: '#666',
-    textAlign: 'center',
+    color: "#666",
+    textAlign: "center",
     marginTop: 4,
   },
   buttonContainer: {
-    alignItems: 'center',
+    alignItems: "center",
     marginVertical: 20,
   },
   buttonLabel: {
     marginTop: 8,
     fontSize: 14,
-    color: '#666',
-    textAlign: 'center',
+    color: "#666",
+    textAlign: "center",
   },
   controlButtons: {
-    alignItems: 'center',
+    alignItems: "center",
     marginTop: 16,
   },
   stopButton: {
     fontSize: 16,
-    color: '#f44336',
-    fontWeight: '600',
+    color: "#f44336",
+    fontWeight: "600",
     padding: 12,
   },
   calibrationSection: {
-    alignItems: 'center',
+    alignItems: "center",
     marginTop: 20,
   },
   calibrationText: {
     fontSize: 14,
-    color: '#2196f3',
-    textDecorationLine: 'underline',
+    color: "#2196f3",
+    textDecorationLine: "underline",
   },
   modalOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "center",
+    alignItems: "center",
   },
   modalContent: {
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     borderRadius: 12,
     padding: 24,
-    width: '80%',
+    width: "80%",
     maxWidth: 400,
   },
   modalTitle: {
     fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
+    fontWeight: "bold",
+    color: "#333",
     marginBottom: 16,
-    textAlign: 'center',
+    textAlign: "center",
   },
   input: {
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: "#ddd",
     borderRadius: 8,
     padding: 12,
     fontSize: 16,
     marginBottom: 20,
   },
   modalButtons: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    justifyContent: "space-between",
   },
   modalButton: {
     fontSize: 16,
-    color: '#666',
+    color: "#666",
     padding: 12,
   },
   modalButtonPrimary: {
-    color: '#2196f3',
-    fontWeight: '600',
+    color: "#2196f3",
+    fontWeight: "600",
   },
 });

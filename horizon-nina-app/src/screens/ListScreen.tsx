@@ -1,21 +1,44 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useCallback } from "react";
 import {
   View,
   Text,
   StyleSheet,
   FlatList,
   TouchableOpacity,
+  Alert,
 } from "react-native";
+import { useFocusEffect } from "@react-navigation/native";
 import { useHorizonData } from "../hooks/useHorizonData";
 import { calculateStatistics } from "../utils/calculations";
 import { exportService } from "../services/exportService";
 
 export const ListScreen: React.FC = () => {
   const { horizons, loadHorizons, deleteHorizon } = useHorizonData();
+  const [exportingId, setExportingId] = React.useState<string | null>(null);
 
-  useEffect(() => {
-    loadHorizons();
-  }, [loadHorizons]);
+  useFocusEffect(
+    useCallback(() => {
+      loadHorizons();
+    }, [loadHorizons])
+  );
+
+  const handleExport = async (item: any) => {
+    try {
+      setExportingId(item.id);
+      const path = await exportService.generateHznFile(item, {
+        resolution: 5,
+        format: "standard",
+        includeMetadata: true,
+        interpolateGaps: true,
+      });
+      await exportService.shareFile(path);
+    } catch (error) {
+      console.error(error);
+      Alert.alert("Error", "Failed to export file. Please try again.");
+    } finally {
+      setExportingId(null);
+    }
+  };
 
   const renderItem = ({ item }: any) => {
     const stats = calculateStatistics(item.points);
@@ -37,17 +60,16 @@ export const ListScreen: React.FC = () => {
         </View>
         <View style={styles.actions}>
           <TouchableOpacity
-            style={[styles.button, styles.primary]}
-            onPress={async () => {
-              const path = await exportService.generateHznFile(item, {
-                resolution: 5,
-                format: "standard",
-                includeMetadata: true,
-                interpolateGaps: true,
-              });
-              await exportService.shareFile(path);
-            }}>
-            <Text style={styles.buttonText}>Export .hzn</Text>
+            style={[
+              styles.button,
+              styles.primary,
+              exportingId === item.id && styles.disabled,
+            ]}
+            disabled={exportingId === item.id}
+            onPress={() => handleExport(item)}>
+            <Text style={styles.buttonText}>
+              {exportingId === item.id ? "Exporting..." : "Export .hzn"}
+            </Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.button, styles.danger]}
@@ -95,5 +117,6 @@ const styles = StyleSheet.create({
   button: { paddingVertical: 10, paddingHorizontal: 12, borderRadius: 8 },
   primary: { backgroundColor: "#1a237e" },
   danger: { backgroundColor: "#f44336" },
+  disabled: { backgroundColor: "#9fa8da" },
   buttonText: { color: "#fff", fontWeight: "600" },
 });

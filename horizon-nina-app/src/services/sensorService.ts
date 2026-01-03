@@ -99,8 +99,10 @@ class SensorService {
     // This means my previous assumption about Z axis was inverted for this device/lib.
     // If it's negative when pointing up, we just negate the result.
 
-    // CHANGE: Removed the negation to flip the sign back.
-    let altitude = Math.atan2(G.z, G.y) * (180 / Math.PI);
+    // CHANGE: Inverted sign as requested.
+    // Pointing Camera UP (Screen Down) -> G.z is negative -> atan2 gives negative. We want Positive.
+    // Pointing Camera DOWN (Screen Up) -> G.z is positive -> atan2 gives positive. We want Negative.
+    let altitude = -Math.atan2(G.z, G.y) * (180 / Math.PI);
 
     // 2. Calculate Azimuth
     // Cross Product: a x b = (ay*bz - az*by, az*bx - ax*bz, ax*by - ay*bx)
