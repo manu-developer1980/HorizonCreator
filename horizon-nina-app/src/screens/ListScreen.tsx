@@ -34,7 +34,9 @@ export const ListScreen: React.FC = () => {
       await exportService.shareFile(path);
     } catch (error) {
       console.error(error);
-      Alert.alert("Error", "Failed to export file. Please try again.");
+      const errorMessage =
+        error instanceof Error ? error.message : "Unknown error occurred";
+      Alert.alert("Export Failed", `Could not export file: ${errorMessage}`);
     } finally {
       setExportingId(null);
     }

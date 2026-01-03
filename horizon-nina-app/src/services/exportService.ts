@@ -18,13 +18,30 @@ class ExportService {
       const filename = `${
         EXPORT_CONFIG.DEFAULT_FILENAME
       }_${new Date().getTime()}${EXPORT_CONFIG.FILE_EXTENSION}`;
-      const filePath = `${FileSystem.documentDirectory}${filename}`;
 
-      await FileSystem.writeAsStringAsync(filePath, content);
+      // Use cache directory for sharing
+      const directory = FileSystem.cacheDirectory;
+      if (!directory) {
+        throw new Error("Cache directory is not available");
+      }
+
+      const filePath = `${directory}${filename}`;
+
+      console.log("Writing to file:", filePath);
+      await FileSystem.writeAsStringAsync(filePath, content, {
+        encoding: FileSystem.EncodingType.UTF8,
+      });
+
+      // Verify file exists
+      const info = await FileSystem.getInfoAsync(filePath);
+      if (!info.exists) {
+        throw new Error("File was not written successfully");
+      }
+
       return filePath;
     } catch (error) {
       console.error("Error generating HZN file:", error);
-      throw new Error("Failed to generate horizon file");
+      throw error;
     }
   }
 
@@ -171,15 +188,17 @@ Points: ${pointCount}
 
   async shareFile(filePath: string): Promise<void> {
     try {
-      if (await Sharing.isAvailableAsync()) {
-        await Sharing.shareAsync(filePath, {
-          mimeType: "text/plain",
-          dialogTitle: "Share Horizon File",
-          UTI: "public.plain-text", // More standard UTI
-        });
-      } else {
+      const isAvailable = await Sharing.isAvailableAsync();
+      if (!isAvailable) {
         throw new Error("Sharing is not available on this device");
       }
+
+      console.log("Sharing file:", filePath);
+      await Sharing.shareAsync(filePath, {
+        mimeType: "text/plain",
+        dialogTitle: "Share Horizon File",
+        UTI: "public.plain-text", // More standard UTI
+      });
     } catch (error) {
       console.error("Error sharing file:", error);
       throw error; // Re-throw the original error for better debugging in the UI
