@@ -31,11 +31,15 @@ export const ListScreen: React.FC = () => {
         includeMetadata: true,
         interpolateGaps: true,
       });
-      await exportService.shareFile(path);
+      
+      if (path.startsWith("content://")) {
+         Alert.alert("Success", "File saved successfully!");
+      } else {
+         await exportService.shareFile(path);
+      }
     } catch (error) {
       console.error(error);
-      const errorMessage =
-        error instanceof Error ? error.message : "Unknown error occurred";
+      const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
       Alert.alert("Export Failed", `Could not export file: ${errorMessage}`);
     } finally {
       setExportingId(null);

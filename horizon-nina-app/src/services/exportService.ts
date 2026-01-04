@@ -1,3 +1,4 @@
+import { Platform } from "react-native";
 import * as FileSystem from "expo-file-system";
 import * as Sharing from "expo-sharing";
 import { HorizonData, ExportOptions } from "../types";
@@ -17,20 +18,50 @@ class ExportService {
       const content = this.formatHorizonData(processedPoints, options, horizon);
       const filename = `${
         EXPORT_CONFIG.DEFAULT_FILENAME
-      }_${new Date().getTime()}${EXPORT_CONFIG.FILE_EXTENSION}`;
+      }_${new Date().getTime()}`; // No extension for SAF initially
 
-      // Use cache directory for sharing, fallback to document directory
+      // Try Storage Access Framework (Android)
+      if (Platform.OS === "android" && FileSystem.StorageAccessFramework) {
+        try {
+          const permissions =
+            await FileSystem.StorageAccessFramework.requestDirectoryPermissionsAsync();
+
+          if (permissions.granted) {
+            const uri = await FileSystem.StorageAccessFramework.createFileAsync(
+              permissions.directoryUri,
+              filename,
+              "text/plain" // MIME type
+            );
+
+            await FileSystem.writeAsStringAsync(uri, content, {
+              encoding: FileSystem.EncodingType.UTF8,
+            });
+            return uri;
+          }
+        } catch (safError) {
+          console.warn("SAF failed, falling back to cache:", safError);
+        }
+      }
+
+      // Fallback to Cache/Document Directory (iOS or SAF denied/failed)
+      const extension = EXPORT_CONFIG.FILE_EXTENSION;
+      const fullFilename = filename + extension;
+
       let directory = FileSystem.cacheDirectory;
       if (!directory) {
-          console.warn("Cache directory not available, falling back to document directory");
-          directory = FileSystem.documentDirectory;
-      }
-      
-      if (!directory) {
-        throw new Error("No writable directory available (cache and document directories are null)");
+        console.warn(
+          "Cache directory not available, falling back to document directory"
+        );
+        directory = FileSystem.documentDirectory;
       }
 
-      const filePath = `${directory}${filename}`;
+      if (!directory) {
+        throw new Error(
+          "No writable directory available (cache and document directories are null)"
+        );
+      }
+
+      const filePath = `${directory}${fullFilename}`;
 
       console.log("Writing to file:", filePath);
       await FileSystem.writeAsStringAsync(filePath, content, {
@@ -193,6 +224,11 @@ Points: ${pointCount}
 
   async shareFile(filePath: string): Promise<void> {
     try {
+      // If it is a SAF URI (content://), we don't need to share it, it is already saved
+      if (filePath.startsWith("content://")) {
+        return;
+      }
+
       const isAvailable = await Sharing.isAvailableAsync();
       if (!isAvailable) {
         throw new Error("Sharing is not available on this device");
