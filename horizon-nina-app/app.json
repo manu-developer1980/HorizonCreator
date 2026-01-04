@@ -2,7 +2,7 @@
   "expo": {
     "name": "Horizon NINA",
     "slug": "horizon-nina-app",
-    "version": "1.0.8",
+    "version": "1.0.9",
     "scheme": "horizonnina",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -18,7 +18,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.tuapp.horizonnina",
-      "buildNumber": "9",
+      "buildNumber": "10",
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "This app needs access to your location to calibrate compass sensors",
         "NSMotionUsageDescription": "This app needs access to motion sensors to capture horizon data",
@@ -28,7 +28,7 @@
       }
     },
     "android": {
-      "versionCode": 9,
+      "versionCode": 10,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
@@ -51,7 +51,9 @@
         {
           "motionSensorPermission": "Allow $(PRODUCT_NAME) to access motion sensors to capture horizon data."
         }
-      ]
+      ],
+      "expo-file-system",
+      "expo-sharing"
     ],
     "extra": {
       "eas": {

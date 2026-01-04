@@ -56,8 +56,10 @@ class ExportService {
       }
 
       if (!directory) {
+        // Debugging: check what keys exist in FileSystem
+        const keys = Object.keys(FileSystem).join(", ");
         throw new Error(
-          `No writable directory available. Cache: ${FileSystem.cacheDirectory}, Doc: ${FileSystem.documentDirectory}`
+          `No writable directory available. Cache: ${FileSystem.cacheDirectory}, Doc: ${FileSystem.documentDirectory}. Keys: ${keys}`
         );
       }
 
