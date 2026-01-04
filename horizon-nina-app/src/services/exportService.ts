@@ -57,7 +57,7 @@ class ExportService {
 
       if (!directory) {
         throw new Error(
-          "No writable directory available (cache and document directories are null)"
+          `No writable directory available. Cache: ${FileSystem.cacheDirectory}, Doc: ${FileSystem.documentDirectory}`
         );
       }
 
